@@ -1,0 +1,28 @@
+route,airline,ident,aircraft_model, cruise_speed_kmh, fuel_burn_gal_per_hr, standard_crew_size, max_pax_capacity
+SIN-DXB,Emirates,UAE353,Airbus A380-800 (quad-jet),963.04,3900,16,555
+SIN-DXB,Emirates,UAE355,BOEING 777-300ER (twin-jet),893,2400,12,390
+LHR-DXB,Emirates,UAE8,Airbus A380-800 (quad-jet),963.04,3900,16,555
+LHR-DXB,Emirates,UAE6,Airbus A380-800 (quad-jet),963.04,3900,16,555
+LHR-DXB,Emirates,UAE4,Airbus A380-800 (quad-jet),963.04,3900,16,555
+LHR-DXB,Emirates,UAE30,Airbus A380-800 (quad-jet),963.04,3900,16,555
+LHR-DXB,Emirates,UAE2,Airbus A380-800 (quad-jet),963.04,3900,16,555
+BKK-DXB,Emirates,UAE375,Airbus A380-800 (quad-jet),963.04,3900,16,555
+BKK-DXB,Emirates,UAE371,BOEING 777-300ER (twin-jet),893,2400,12,390
+BKK-DXB,Emirates,UAE385,Airbus A380-800 (quad-jet),963.04,3900,16,555
+BKK-DXB,Emirates,UAE373,Airbus A380-800 (quad-jet),963.04,3900,16,555
+HKG-DXB,Emirates,UAE381,Airbus A380-800 (quad-jet),963.04,3900,16,555
+DOH-SIN,Qatar Airways,QTR948,Airbus A350-900 (twin-jet),901.924,1900,11,314
+DOH-SIN,Qatar Airways,QTR942,Airbus A350-900 (twin-jet),901.924,1900,11,314
+SIN-LHR,Singapore Airlines,SIA318,BOEING 777-300ER (twin-jet),893,2400,12,390
+SIN-LHR,Singapore Airlines,SIA308,Airbus A380-800 (quad-jet),963.04,3900,16,555
+SIN-LHR,Singapore Airlines,SIA306,BOEING 777-300ER (twin-jet),893,2400,12,390
+SIN-LHR,British Airways,BAW12,BOEING 777-300ER (twin-jet),893,2400,12,390
+SIN-LHR,Singapore Airlines,SIA322,Airbus A380-800 (quad-jet),963.04,3900,16,555
+SIN-LHR,British Airways,BAW16,Boeing 787-9 Dreamliner (twin-jet),907.48,1750,9,230
+BOM-DXB,Emirates,UAE505,BOEING 777-300ER (twin-jet),893,2400,12,390
+BOM-DXB,Emirates,UAE501,Airbus A380-800 (quad-jet),963.04,3900,16,555
+BOM-DXB,Emirates,UAE509,BOEING 777-300ER (twin-jet),893,2400,12,390
+BOM-DXB,Emirates,UAE503,Airbus A350-900 (twin-jet),901.924,1900,11,314
+BOM-DXB,Emirates,UAE507,BOEING 777-300ER (twin-jet),893,2400,12,390
+BOM-DXB,Air India,AIC4217,Boeing 787-8 (twin-jet),913,1750,9,230
+MEL-DXB,Emirates,UAE407,Airbus A380-800 (quad-jet),963.04,3900,16,555

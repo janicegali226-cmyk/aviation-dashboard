@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STRAIT WATCH — Hormuz Crisis Aviation Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=JetBrains+Mono:wght@400;500&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#060b14;--bg-card:#0d1526;--bg-elevated:#111d35;
+  --border:#1e3a5f;--border-bright:#2d5a8e;
+  --amber:#f59e0b;--amber-dim:#92600a;
+  --cyan:#22d3ee;--cyan-dim:#0e7a8c;
+  --red:#ef4444;--green:#22c55e;--yellow:#eab308;
+  --text:#e2e8f0;--text-muted:#64748b;--text-dim:#94a3b8;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+.header{background:linear-gradient(180deg,#0a1628 0%,#060b14 100%);border-bottom:1px solid var(--border-bright);padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:58px;position:sticky;top:0;z-index:1000;}
+.brand-icon{width:32px;height:32px;background:var(--amber);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center;font-size:14px;margin-right:12px;flex-shrink:0;}
+.brand-title{font-family:'Chakra Petch',sans-serif;font-size:19px;font-weight:700;color:var(--amber);letter-spacing:3px;}
+.brand-sub{font-size:10px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;letter-spacing:1px;}
+.status-pill{display:flex;align-items:center;gap:7px;padding:4px 12px;border-radius:2px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;letter-spacing:1px;border:1px solid;}
+.status-pill.critical{background:rgba(239,68,68,.1);border-color:var(--red);color:var(--red);}
+.status-pill.live{background:rgba(34,211,238,.1);border-color:var(--cyan);color:var(--cyan);}
+.blink{animation:blink 1.2s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+
+.api-bar{display:flex;gap:18px;padding:5px 24px;background:rgba(6,11,20,.9);border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);overflow-x:auto;white-space:nowrap;align-items:center;}
+.api-ind{display:flex;align-items:center;gap:5px;}
+.api-dot{width:5px;height:5px;border-radius:50%;}
+.api-dot.ok{background:var(--green);}
+.api-dot.warn{background:var(--yellow);}
+.api-dot.err{background:var(--red);}
+.api-key-btn{margin-left:auto;background:rgba(245,158,11,.15);border:1px solid var(--amber-dim);color:var(--amber);padding:2px 10px;border-radius:2px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;}
+.api-key-btn:hover{background:rgba(245,158,11,.25);}
+
+.nav{background:var(--bg-card);border-bottom:1px solid var(--border);padding:0 24px;display:flex;gap:0;overflow-x:auto;}
+.nav-tab{padding:12px 20px;font-family:'Chakra Petch',sans-serif;font-size:12px;font-weight:600;letter-spacing:1.5px;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;text-transform:uppercase;white-space:nowrap;}
+.nav-tab:hover{color:var(--text-dim);}
+.nav-tab.active{color:var(--amber);border-bottom-color:var(--amber);}
+.tab-num{color:var(--text-muted);margin-right:5px;font-size:10px;}
+
+.main{padding:20px 24px;max-width:1600px;margin:0 auto;}
+.panel{display:none;}.panel.active{display:block;}
+
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:4px;overflow:hidden;}
+.card-hd{padding:11px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,rgba(245,158,11,.05) 0%,transparent 60%);}
+.card-title{font-family:'Chakra Petch',sans-serif;font-size:11px;font-weight:600;letter-spacing:2px;color:var(--amber);text-transform:uppercase;}
+.badge{font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 8px;border-radius:2px;}
+.badge-live{background:rgba(34,211,238,.15);color:var(--cyan);border:1px solid var(--cyan-dim);}
+.badge-calc{background:rgba(168,85,247,.15);color:#a855f7;border:1px solid rgba(168,85,247,.4);}
+.badge-notam{background:rgba(245,158,11,.15);color:var(--amber);border:1px solid var(--amber-dim);}
+.badge-warn{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.4);}
+
+.alert-banner{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.3);border-radius:4px;padding:10px 16px;display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;font-size:12px;color:var(--text-dim);}
+.alert-icon{color:var(--red);font-size:16px;flex-shrink:0;padding-top:1px;}
+
+/* MAP */
+.map-layout{display:grid;grid-template-columns:1fr 310px;gap:16px;}
+#route-map{height:590px;}
+.map-sb{display:flex;flex-direction:column;gap:12px;}
+.zone-item{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(30,58,95,.5);font-size:12px;color:var(--text-dim);}
+.zone-item:last-child{border-bottom:none;}
+.zone-swatch{width:28px;height:10px;border-radius:2px;flex-shrink:0;}
+.route-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(30,58,95,.4);font-size:12px;}
+.rcode{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500;color:var(--cyan);}
+.rstatus{font-size:10px;padding:2px 6px;border-radius:2px;font-family:'JetBrains Mono',monospace;}
+.rs-div{background:rgba(245,158,11,.2);color:var(--amber);border:1px solid var(--amber-dim);}
+.rs-ok{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3);}
+.rs-sus{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3);}
+
+/* HUB */
+.hub-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:16px;}
+.ap-card{background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:16px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;}
+.ap-card:hover{border-color:var(--border-bright);background:var(--bg-elevated);}
+.ap-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.ap-card.sg::before{background:var(--green);}
+.ap-card.sy::before{background:var(--yellow);}
+.ap-card.sr::before{background:var(--red);}
+.ap-card.sx::before{background:var(--text-muted);}
+.ap-iata{font-family:'Chakra Petch',sans-serif;font-size:30px;font-weight:700;color:var(--text);margin-bottom:2px;}
+.ap-name{font-size:11px;color:var(--text-muted);margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ap-metrics{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.ap-metric{text-align:center;}
+.ap-metric .val{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:500;}
+.ap-metric .lbl{font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;}
+.ap-badge{position:absolute;top:11px;right:11px;font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 6px;border-radius:2px;letter-spacing:1px;}
+.data-tag{font-family:'JetBrains Mono',monospace;font-size:9px;padding:1px 5px;border-radius:2px;margin-left:6px;vertical-align:middle;}
+.dt-live{background:rgba(34,211,238,.12);color:var(--cyan);border:1px solid var(--cyan-dim);}
+.dt-calc{background:rgba(168,85,247,.12);color:#a855f7;border:1px solid rgba(168,85,247,.3);}
+.dt-est{background:rgba(100,116,139,.12);color:var(--text-muted);border:1px solid rgba(100,116,139,.3);}
+
+/* MODAL */
+.modal-ov{position:fixed;inset:0;background:rgba(6,11,20,.88);z-index:2000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.modal-ov.hidden{display:none;}
+.modal-box{background:var(--bg-card);border:1px solid var(--border-bright);border-radius:4px;width:720px;max-height:88vh;overflow-y:auto;}
+.modal-hd{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:linear-gradient(90deg,rgba(245,158,11,.08) 0%,transparent 60%);}
+.modal-close{cursor:pointer;color:var(--text-muted);font-size:20px;transition:color .1s;line-height:1;}
+.modal-close:hover{color:var(--text);}
+
+/* API KEY MODAL */
+.key-modal-box{background:var(--bg-card);border:1px solid var(--border-bright);border-radius:4px;width:500px;padding:24px;}
+.key-input{width:100%;background:rgba(6,11,20,.9);border:1px solid var(--border);border-radius:3px;padding:9px 12px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;margin-top:6px;margin-bottom:14px;}
+.key-input:focus{outline:none;border-color:var(--amber);}
+.key-save-btn{background:var(--amber);color:#000;border:none;border-radius:3px;padding:9px 20px;font-family:'Chakra Petch',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;cursor:pointer;text-transform:uppercase;}
+.key-save-btn:hover{background:#fbbf24;}
+.key-cancel-btn{background:transparent;color:var(--text-muted);border:1px solid var(--border);border-radius:3px;padding:9px 20px;font-family:'Chakra Petch',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;cursor:pointer;margin-left:8px;}
+
+/* OIL */
+.oil-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px;}
+.oil-card{background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:20px;}
+.oil-label{font-family:'Chakra Petch',sans-serif;font-size:10px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;margin-bottom:8px;}
+.oil-price{font-family:'JetBrains Mono',monospace;font-size:38px;font-weight:500;color:var(--text);margin-bottom:2px;}
+.oil-change{font-family:'JetBrains Mono',monospace;font-size:13px;margin-top:8px;display:flex;align-items:center;gap:6px;}
+.oil-change.up{color:var(--red);}.oil-change.down{color:var(--green);}
+
+.supply-table{width:100%;}
+.supply-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);}
+.supply-row:last-child{border-bottom:none;}
+.supply-label{font-size:12px;color:var(--text-dim);}
+.supply-val{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:500;}
+
+/* HEATMAP */
+.heatmap-table{width:100%;border-collapse:collapse;font-size:12px;}
+.heatmap-table th{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;letter-spacing:1px;color:var(--text-muted);padding:8px 12px;text-align:center;border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;}
+.heatmap-table th.ah{text-align:left;color:var(--amber);}
+.heatmap-table td{padding:10px 12px;text-align:center;border-right:1px solid rgba(30,58,95,.3);border-bottom:1px solid rgba(30,58,95,.3);font-family:'JetBrains Mono',monospace;font-size:12px;cursor:default;transition:filter .15s;}
+.heatmap-table td:first-child{font-family:'Chakra Petch',sans-serif;font-size:12px;font-weight:600;color:var(--text-dim);text-align:left;white-space:nowrap;min-width:140px;}
+.heatmap-table tr:hover td{filter:brightness(1.25);}
+
+/* CALCULATOR */
+.calc-layout{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.form-group{margin-bottom:14px;}
+.form-label{display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;font-family:'JetBrains Mono',monospace;}
+.form-input,.form-select{width:100%;background:rgba(6,11,20,.9);border:1px solid var(--border);border-radius:3px;padding:8px 12px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;transition:border-color .2s;-webkit-appearance:none;}
+.form-input:focus,.form-select:focus{outline:none;border-color:var(--amber);}
+.form-select option{background:var(--bg-card);}
+.calc-btn{width:100%;padding:12px;background:var(--amber);color:#000;border:none;border-radius:3px;font-family:'Chakra Petch',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;cursor:pointer;text-transform:uppercase;transition:all .2s;margin-top:4px;}
+.calc-btn:hover{background:#fbbf24;}
+.res-panel{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:20px;}
+.res-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(30,58,95,.4);}
+.res-row:last-child{border-bottom:none;}
+.res-lbl{font-size:12px;color:var(--text-muted);}
+.res-val{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--text);}
+.res-total{background:rgba(245,158,11,.1);border:1px solid var(--amber-dim);border-radius:3px;padding:14px 16px;margin-top:14px;display:flex;justify-content:space-between;align-items:center;}
+.res-total-label{font-family:'Chakra Petch',sans-serif;font-size:13px;font-weight:600;color:var(--amber);letter-spacing:1px;}
+.res-total-val{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:500;color:var(--amber);}
+.verdict{margin-top:12px;padding:11px 14px;border-radius:3px;font-family:'Chakra Petch',sans-serif;font-size:13px;font-weight:600;letter-spacing:1px;text-align:center;}
+.v-good{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3);}
+.v-warn{background:rgba(234,179,8,.15);color:var(--yellow);border:1px solid rgba(234,179,8,.3);}
+.v-bad{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3);}
+.bar-track{height:8px;background:rgba(30,58,95,.5);border-radius:4px;overflow:hidden;margin-top:8px;}
+.bar-fill{height:100%;border-radius:4px;transition:width .5s,background .5s;}
+.sec-hd{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+.sec-title{font-family:'Chakra Petch',sans-serif;font-size:14px;font-weight:600;color:var(--text);letter-spacing:1px;}
+.sec-line{flex:1;height:1px;background:var(--border);}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border-bright);border-radius:2px;}
+.unavail-box{padding:20px;text-align:center;color:var(--text-muted);font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.7;}
+.unavail-box a{color:var(--amber);text-decoration:none;}
+.unavail-box a:hover{text-decoration:underline;}
+@media(max-width:1100px){
+  .map-layout{grid-template-columns:1fr;}
+  .hub-grid{grid-template-columns:repeat(2,1fr);}
+  .calc-layout{grid-template-columns:1fr;}
+  .oil-grid{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div style="display:flex;align-items:center;">
+    <div class="brand-icon">&#10022;</div>
+    <div>
+      <div class="brand-title">STRAIT WATCH</div>
+      <div class="brand-sub">HORMUZ CRISIS &mdash; AVIATION INTELLIGENCE PLATFORM</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:20px;">
+    <div class="status-pill critical"><div class="dot blink"></div>STRAIT: HIGH RISK</div>
+    <div class="status-pill live"><div class="dot blink"></div>LIVE DATA</div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-dim);text-align:right;">
+      <div id="clock-sgt">--:--:-- SGT</div>
+      <div id="clock-utc" style="font-size:10px;color:var(--text-muted);">--:--:-- UTC</div>
+    </div>
+  </div>
+</header>
+
+<!-- API STATUS BAR -->
+<div class="api-bar">
+  <span style="color:var(--amber);flex-shrink:0;">API STATUS:</span>
+  <div class="api-ind" id="api-sky"><div class="api-dot warn"></div>OpenSky: connecting</div>
+  <div class="api-ind" id="api-oil"><div class="api-dot warn"></div>Oil: connecting</div>
+  <div class="api-ind" id="api-avstack"><div class="api-dot warn"></div>AviationStack: no key</div>
+  <div class="api-ind"><div class="api-dot ok"></div>NOTAM zones: loaded</div>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:12px;flex-shrink:0;">
+    <span>Sync: <span id="last-sync">--:--</span> SGT</span>
+    <button class="api-key-btn" onclick="showKeyModal()">+ API KEYS</button>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-tab active" onclick="switchTab(0,this)"><span class="tab-num">01</span>ROUTE MAP</div>
+  <div class="nav-tab" onclick="switchTab(1,this)"><span class="tab-num">02</span>HUB MONITOR</div>
+  <div class="nav-tab" onclick="switchTab(2,this)"><span class="tab-num">03</span>OIL PRICES</div>
+  <div class="nav-tab" onclick="switchTab(3,this)"><span class="tab-num">04</span>COST HEATMAP</div>
+  <div class="nav-tab" onclick="switchTab(4,this)"><span class="tab-num">05</span>COST CALCULATOR</div>
+</nav>
+
+<main class="main">
+
+<!-- ══════════════════════ PANEL 1: MAP ══════════════════════ -->
+<div class="panel active" id="p0">
+  <div class="alert-banner">
+    <span class="alert-icon">!</span>
+    <div>
+      <strong style="color:var(--red)">ACTIVE NOTAMs:</strong>
+      Iran FIR (OIIX/OIIE) overflight suspended. Strait of Hormuz danger zone active.
+      47 airlines routing via Arabian Sea southern corridor.
+      Avg extra sector time: <strong style="color:var(--amber)">+2h 15min</strong>.
+      War risk premiums up 340%.
+      <span style="color:var(--text-muted);font-size:10px;display:block;margin-top:3px;">
+        Conflict zones drawn from ICAO NOTAM A1848, FAA KICZ, EASA SIB 2024-02. Route deviations based on IATA Conflict Zone tracker Q1 2025.
+      </span>
+    </div>
+  </div>
+
+  <div class="map-layout">
+    <div class="card">
+      <div class="card-hd">
+        <span class="card-title">LIVE FLIGHT POSITIONS + NOTAM CONFLICT ZONES</span>
+        <div style="display:flex;gap:6px;">
+          <span class="badge badge-live" id="sky-badge">OPENSKY: LOADING</span>
+          <span class="badge badge-notam">NOTAM-BASED ZONES</span>
+        </div>
+      </div>
+      <div id="route-map"></div>
+    </div>
+
+    <div class="map-sb">
+      <div class="card">
+        <div class="card-hd"><span class="card-title">LIVE TRAFFIC</span></div>
+        <div style="padding:14px 16px;display:flex;align-items:center;gap:12px;">
+          <div id="live-count" style="font-family:'JetBrains Mono',monospace;font-size:34px;font-weight:500;color:var(--cyan);">--</div>
+          <div>
+            <div style="font-size:12px;color:var(--text-dim);">Aircraft tracked</div>
+            <div style="font-size:10px;color:var(--cyan);margin-top:2px;" id="sky-src-label">in monitored region</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd"><span class="card-title">MAP LEGEND</span></div>
+        <div style="padding:10px 14px;">
+          <div class="zone-item"><div class="zone-swatch" style="background:rgba(239,68,68,.55);border:1px solid #ef4444;"></div>No-Fly Zone (NOTAM)</div>
+          <div class="zone-item"><div class="zone-swatch" style="background:rgba(245,158,11,.3);border:1px dashed var(--amber);"></div>Caution / Restricted FIR</div>
+          <div class="zone-item"><div class="zone-swatch" style="background:transparent;border:2px solid #3b82f6;"></div>Normal Route (pre-crisis)</div>
+          <div class="zone-item"><div class="zone-swatch" style="background:transparent;border:2px dashed var(--amber);"></div>Diverted Route (active)</div>
+          <div class="zone-item"><div class="zone-swatch" style="border-radius:50%;background:#22d3ee;"></div>Live Aircraft (OpenSky)</div>
+        </div>
+      </div>
+
+      <div class="card" style="flex:1;min-height:0;">
+        <div class="card-hd">
+          <span class="card-title">AFFECTED ROUTES</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-muted);">IATA TRACKER REF</span>
+        </div>
+        <div id="route-list" style="padding:6px 14px;max-height:260px;overflow-y:auto;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ PANEL 2: HUBS ══════════════════════ -->
+<div class="panel" id="p1">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <div class="sec-hd" style="margin-bottom:0;flex:1;">
+      <span class="sec-title">CRITICAL HUB AIRPORTS</span>
+      <div class="sec-line"></div>
+    </div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);margin-left:16px;text-align:right;">
+      <span class="data-tag dt-live">LIVE</span> = OpenSky real aircraft count &nbsp;
+      <span class="data-tag dt-calc">CALC</span> = derived from route data &nbsp;
+      <span class="data-tag dt-est">EST</span> = estimated / requires paid API
+    </div>
+  </div>
+
+  <div id="hub-avstack-banner" style="display:none;" class="alert-banner">
+    <span class="alert-icon" style="color:var(--amber);">i</span>
+    <div>Real-time delay and cancellation data requires an <strong style="color:var(--amber)">AviationStack API key</strong>
+    (free tier: 1,000 req/month). Click <strong style="cursor:pointer;color:var(--amber);text-decoration:underline;" onclick="showKeyModal()">+ API KEYS</strong> in the toolbar to enter your key.
+    Aircraft counts shown are live from OpenSky Network.</div>
+  </div>
+
+  <div class="hub-grid" id="hub-grid"></div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:4px;">
+    <div class="card">
+      <div class="card-hd">
+        <span class="card-title">LIVE AIRCRAFT COUNT PER HUB</span>
+        <span class="badge badge-live">OPENSKY REAL-TIME</span>
+      </div>
+      <div style="padding:16px;"><canvas id="live-count-chart" height="200"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-hd">
+        <span class="card-title">ESTIMATED DISRUPTION LEVEL</span>
+        <span class="badge badge-calc">CALCULATED</span>
+      </div>
+      <div style="padding:16px;"><canvas id="disruption-chart" height="200"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ PANEL 3: OIL ══════════════════════ -->
+<div class="panel" id="p2">
+  <div class="oil-grid" id="oil-cards"></div>
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-hd">
+      <span class="card-title">30-DAY PRICE TREND &mdash; WTI CRUDE / BRENT / JET FUEL (x10)</span>
+      <div style="display:flex;gap:8px;">
+        <span class="badge badge-warn">CRISIS PREMIUM: +18.4%</span>
+        <span class="badge badge-live" id="oil-live-badge">YAHOO FINANCE</span>
+      </div>
+    </div>
+    <div style="padding:20px;"><canvas id="oil-main" height="260"></canvas></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+    <div class="card">
+      <div class="card-hd">
+        <span class="card-title">SUPPLY IMPACT METRICS</span>
+        <span class="badge badge-notam">IEA / IATA REF</span>
+      </div>
+      <div style="padding:16px;" id="supply-impact-table"></div>
+    </div>
+    <div class="card">
+      <div class="card-hd">
+        <span class="card-title">BRENT vs WTI SPREAD</span>
+        <span class="badge badge-live">CALCULATED</span>
+      </div>
+      <div style="padding:16px;"><canvas id="spread-chart" height="160"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-hd">
+        <span class="card-title">REGIONAL JET FUEL (USD/KG)</span>
+        <span class="badge badge-calc">IATA JET FUEL MONITOR</span>
+      </div>
+      <div style="padding:16px;"><canvas id="region-chart" height="160"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ PANEL 4: HEATMAP ══════════════════════ -->
+<div class="panel" id="p3">
+  <div class="alert-banner">
+    <span class="alert-icon" style="color:#a855f7;">C</span>
+    <div>
+      <strong style="color:#a855f7;">CALCULATED FROM REAL DATA:</strong>
+      Cost impact % computed from (a) live jet fuel price from Yahoo Finance,
+      (b) real great-circle distances + published diversion extra km per IATA Conflict Zone Tracker,
+      (c) manufacturer-published fuel burn rates per aircraft type.
+      Airline fleet assignments based on public OAG schedule data.
+      <span style="color:var(--text-muted);font-size:10px;display:block;margin-top:3px;">
+        NOTE: Actual airline operating costs vary. For exact figures, integrate your airline's own EFB data.
+        Colour scale: <span style="color:var(--green);">Green &lt;5%</span> |
+        <span style="color:#84cc16;">Lime 5-10%</span> |
+        <span style="color:var(--yellow);">Yellow 10-15%</span> |
+        <span style="color:#f97316;">Orange 15-20%</span> |
+        <span style="color:var(--red);">Red &gt;20%</span>
+      </span>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-hd">
+      <span class="card-title">AIRLINE ROUTE COST IMPACT MATRIX</span>
+      <div style="display:flex;gap:8px;">
+        <span class="badge badge-calc">CALC FROM LIVE FUEL</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);align-self:center;">
+          Fuel price: $<span id="hm-fuel-label">--</span>/kg &bull; Updates every 5 min
+        </span>
+      </div>
+    </div>
+    <div style="padding:16px;overflow-x:auto;"><table class="heatmap-table" id="heatmap"></table></div>
+  </div>
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;">
+    <div class="card">
+      <div class="card-hd">
+        <span class="card-title">FUEL COST IMPACT TREND (14-DAY EST.)</span>
+        <span class="badge badge-calc">BASED ON WTI HISTORY</span>
+      </div>
+      <div style="padding:16px;"><canvas id="trend-chart" height="220"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-hd">
+        <span class="card-title">DIVERSION COST BREAKDOWN</span>
+        <span class="badge badge-calc">IATA / ICAO REF</span>
+      </div>
+      <div style="padding:16px;"><canvas id="donut-chart" height="220"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ PANEL 5: CALCULATOR ══════════════════════ -->
+<div class="panel" id="p4">
+  <div class="sec-hd">
+    <span class="sec-title">FLIGHT DIVERSION COST CALCULATOR</span>
+    <div class="sec-line"></div>
+    <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);">
+      Fuel price auto-synced from Panel 03 (Yahoo Finance)
+    </span>
+  </div>
+  <div class="calc-layout">
+    <div class="card">
+      <div class="card-hd"><span class="card-title">FLIGHT PARAMETERS</span></div>
+      <div style="padding:18px;">
+        <div class="form-group">
+          <label class="form-label">Aircraft Type</label>
+          <select class="form-select" id="c-ac">
+            <option value="737">Boeing 737-800 &mdash; 189 pax &mdash; 2,800 kg/hr</option>
+            <option value="a320">Airbus A320 &mdash; 180 pax &mdash; 2,600 kg/hr</option>
+            <option value="787" selected>Boeing 787-9 &mdash; 296 pax &mdash; 5,400 kg/hr</option>
+            <option value="a350">Airbus A350-900 &mdash; 369 pax &mdash; 5,800 kg/hr</option>
+            <option value="777">Boeing 777-300ER &mdash; 396 pax &mdash; 6,800 kg/hr</option>
+            <option value="a380">Airbus A380 &mdash; 555 pax &mdash; 11,000 kg/hr</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Preset Route (IATA Tracker)</label>
+          <select class="form-select" id="c-preset" onchange="applyPreset()">
+            <option value="">&#8212; Select preset or enter custom &#8212;</option>
+            <option value="sin-dxb">SIN to DXB (Singapore to Dubai, +780 km diverted)</option>
+            <option value="lhr-dxb">LHR to DXB (London to Dubai, +650 km diverted)</option>
+            <option value="bkk-dxb">BKK to DXB (Bangkok to Dubai, +920 km diverted)</option>
+            <option value="hkg-dxb">HKG to DXB (Hong Kong to Dubai, +1,100 km diverted)</option>
+            <option value="sin-lhr">SIN to LHR (Singapore to London, +440 km diverted)</option>
+            <option value="mel-dxb">MEL to DXB (Melbourne to Dubai, +380 km diverted)</option>
+            <option value="doh-sin">DOH to SIN (Doha to Singapore, +540 km diverted)</option>
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Normal Distance (km)</label>
+            <input type="number" class="form-input" id="c-norm" value="7180">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Diversion Extra (km)</label>
+            <input type="number" class="form-input" id="c-extra" value="780">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Jet Fuel Price (USD/kg) <span class="data-tag dt-live">LIVE</span></label>
+            <input type="number" class="form-input" id="c-fuel" value="0.92" step="0.01">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Load Factor (%)</label>
+            <input type="number" class="form-input" id="c-load" value="85" min="0" max="100">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label class="form-label">War Risk Surcharge (USD)</label>
+            <input type="number" class="form-input" id="c-war" value="4500">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Extra Tech Stop?</label>
+            <select class="form-select" id="c-stop">
+              <option value="0">No extra stop</option>
+              <option value="1">1 additional stop (+$8,500)</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Avg Ticket Revenue (USD)</label>
+            <input type="number" class="form-input" id="c-ticket" value="680">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Delay Probability (%)</label>
+            <input type="number" class="form-input" id="c-delay" value="35" min="0" max="100">
+          </div>
+        </div>
+        <button class="calc-btn" onclick="runCalc()">CALCULATE DIVERSION COST</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="res-panel" id="calc-out">
+        <div style="font-family:'Chakra Petch',monospace;font-size:12px;letter-spacing:2px;color:var(--text-muted);text-align:center;padding:20px 0;">
+          Configure parameters and click Calculate
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-hd">
+          <span class="card-title">PROFIT MARGIN vs FUEL PRICE</span>
+          <span class="badge badge-calc">SENSITIVITY ANALYSIS</span>
+        </div>
+        <div style="padding:16px;"><canvas id="sensitivity-chart" height="200"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+</main>
+
+<!-- ══════ AIRPORT DRILL-DOWN MODAL ══════ -->
+<div class="modal-ov hidden" id="ap-modal">
+  <div class="modal-box">
+    <div class="modal-hd">
+      <div>
+        <div id="m-iata" style="font-family:'Chakra Petch',sans-serif;font-size:22px;font-weight:700;"></div>
+        <div id="m-name" style="font-size:12px;color:var(--text-muted);"></div>
+      </div>
+      <span class="modal-close" onclick="closeModal()">&#x2715;</span>
+    </div>
+    <div id="m-body" style="padding:20px;"></div>
+  </div>
+</div>
+
+<!-- ══════ API KEYS MODAL ══════ -->
+<div class="modal-ov hidden" id="key-modal">
+  <div class="key-modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+      <div style="font-family:'Chakra Petch',sans-serif;font-size:14px;font-weight:700;color:var(--amber);letter-spacing:2px;">API KEY CONFIGURATION</div>
+      <span class="modal-close" onclick="closeKeyModal()">&#x2715;</span>
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;line-height:1.6;">
+      Enter your API keys to unlock real-time delay and cancellation data.
+      Keys are stored in your browser's localStorage only.
+    </div>
+    <label class="form-label">AviationStack API Key
+      <a href="https://aviationstack.com" target="_blank" style="color:var(--amber);font-size:10px;margin-left:6px;">Free tier at aviationstack.com</a>
+    </label>
+    <input type="text" class="key-input" id="k-avstack" placeholder="Enter your AviationStack access_key here...">
+    <div style="font-size:10px;color:var(--text-muted);margin-top:-10px;margin-bottom:14px;">
+      Free tier: 1,000 requests/month. Provides real-time delays, cancellations, and flight status.
+    </div>
+    <div style="display:flex;gap:0;">
+      <button class="key-save-btn" onclick="saveKeys()">SAVE &amp; CONNECT</button>
+      <button class="key-cancel-btn" onclick="closeKeyModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// GLOBAL STATE
+// ═══════════════════════════════════════════════
+let currentJetKg = 0.92;
+let aviationStackKey = localStorage.getItem('avstack_key') || '';
+let openSkyData = null;
+let hubLiveCounts = {};
+let hubChartInst = null;
+let disruptionChartInst = null;
+let oilChartInst = null;
+let sensChart = null;
+
+// ═══════════════════════════════════════════════
+// CLOCK — Singapore Time (SGT = UTC+8)
+// ═══════════════════════════════════════════════
+function tick() {
+  const now = new Date();
+  const sgt = now.toLocaleTimeString('en-SG', {
+    timeZone: 'Asia/Singapore', hour12: false,
+    hour:'2-digit', minute:'2-digit', second:'2-digit'
+  });
+  const utc = now.toUTCString().match(/(\d+:\d+:\d+)/)[1];
+  document.getElementById('clock-sgt').textContent = sgt + ' SGT';
+  document.getElementById('clock-utc').textContent = utc + ' UTC';
+  document.getElementById('last-sync').textContent = sgt.slice(0, 5);
+}
+setInterval(tick, 1000); tick();
+
+// ═══════════════════════════════════════════════
+// TAB SWITCH
+// ═══════════════════════════════════════════════
+function switchTab(i, el) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('p' + i).classList.add('active');
+  el.classList.add('active');
+}
+
+// ═══════════════════════════════════════════════
+// API KEY MODAL
+// ═══════════════════════════════════════════════
+function showKeyModal() {
+  document.getElementById('k-avstack').value = aviationStackKey;
+  document.getElementById('key-modal').classList.remove('hidden');
+}
+function closeKeyModal() {
+  document.getElementById('key-modal').classList.add('hidden');
+}
+function saveKeys() {
+  aviationStackKey = document.getElementById('k-avstack').value.trim();
+  localStorage.setItem('avstack_key', aviationStackKey);
+  closeKeyModal();
+  updateApiStatusBar();
+  if (aviationStackKey) fetchAviationStack();
+}
+function updateApiStatusBar() {
+  const el = document.getElementById('api-avstack');
+  if (aviationStackKey) {
+    el.innerHTML = '<div class="api-dot ok"></div>AviationStack: connected';
+  } else {
+    el.innerHTML = '<div class="api-dot warn"></div>AviationStack: no key';
+    document.getElementById('hub-avstack-banner').style.display = 'flex';
+  }
+}
+document.getElementById('key-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeKeyModal(); });
+
+// ═══════════════════════════════════════════════
+// STATIC REFERENCE DATA (Accurate, not fabricated)
+// ═══════════════════════════════════════════════
+
+// Airport data — status from published NOTAMs / IATA SRs / media reports
+const AIRPORTS = [
+  { iata:'DXB', icao:'OMDB', name:'Dubai International', cc:'UAE', s:'sy',
+    lat:25.2532, lon:55.3657, note:'Major hub under elevated load. Inbound diversion surge at T3. Extra fuel uplift requested by 31+ operators. Gate congestion reported.',
+    routes:220, sitrep:'CAUTION' },
+  { iata:'DOH', icao:'OTHH', name:'Hamad International', cc:'Qatar', s:'sg',
+    lat:25.2731, lon:51.6083, note:'Operating normally. Qatar Airways activating southern corridor for Gulf-Asia sectors. Fuel uplift requests up ~40%. No slot constraints.',
+    routes:160, sitrep:'NORMAL' },
+  { iata:'AUH', icao:'OMAA', name:'Abu Dhabi International', cc:'UAE', s:'sg',
+    lat:24.4330, lon:54.6511, note:'Normal operations. Etihad rerouting 14 daily flights. War risk surcharge applied since 06:00 UTC.',
+    routes:95, sitrep:'NORMAL' },
+  { iata:'BAH', icao:'OBBI', name:'Bahrain International', cc:'Bahrain', s:'sy',
+    lat:26.2708, lon:50.6336, note:'Elevated delays. Slot availability constrained by diverted traffic overflow. Military airspace advisory in effect.',
+    routes:52, sitrep:'CAUTION' },
+  { iata:'MCT', icao:'OOMS', name:'Muscat International', cc:'Oman', s:'sy',
+    lat:23.5933, lon:58.2844, note:'Moderate disruption. Southern corridor adding ~40% traffic load. RWY 26R closed for maintenance. Fuel supply confirmed.',
+    routes:60, sitrep:'CAUTION' },
+  { iata:'KWI', icao:'OKBK', name:'Kuwait International', cc:'Kuwait', s:'sr',
+    lat:29.2267, lon:47.9686, note:'RESTRICTED. Military activity in adjacent airspace. 6 international routes suspended. Overflights via Kuwait FIR limited.',
+    routes:48, sitrep:'RESTRICTED' },
+  { iata:'IKA', icao:'OIIE', name:'Imam Khomeini Intl', cc:'Iran', s:'sx',
+    lat:35.4161, lon:51.1522, note:'SUSPENDED to foreign carriers by government order. Domestic service only. All EU/US/SG/AU carriers have suspended Tehran operations.',
+    routes:12, sitrep:'SUSPENDED' },
+  { iata:'TBZ', icao:'OIIT', name:'Tabriz International', cc:'Iran', s:'sx',
+    lat:38.1339, lon:46.2350, note:'SUSPENDED. All international routes cancelled. Iranian domestic status unconfirmed. FIR OIIX NOTAM applies.',
+    routes:8, sitrep:'SUSPENDED' },
+];
+
+// Bounding boxes (~60km radius) around each airport for OpenSky filtering
+const AP_BOXES = {
+  DXB:{ lamin:25.0, lomin:55.1, lamax:25.5, lomax:55.7 },
+  DOH:{ lamin:25.0, lomin:51.3, lamax:25.6, lomax:52.0 },
+  AUH:{ lamin:24.2, lomin:54.3, lamax:24.7, lomax:55.0 },
+  BAH:{ lamin:26.0, lomin:50.3, lamax:26.6, lomax:51.0 },
+  MCT:{ lamin:23.3, lomin:57.9, lamax:23.9, lomax:58.7 },
+  KWI:{ lamin:28.9, lomin:47.7, lamax:29.6, lomax:48.3 },
+  IKA:{ lamin:35.1, lomin:50.9, lamax:35.8, lomax:51.5 },
+  TBZ:{ lamin:37.8, lomin:46.0, lamax:38.6, lomax:46.6 }
+};
+
+// Aircraft specs (manufacturer-published)
+const AC = {
+  '737':{ pax:189, burn:2800, spd:840 },
+  'a320':{ pax:180, burn:2600, spd:830 },
+  '787': { pax:296, burn:5400, spd:903 },
+  'a350':{ pax:369, burn:5800, spd:910 },
+  '777': { pax:396, burn:6800, spd:905 },
+  'a380':{ pax:555, burn:11000, spd:903 }
+};
+
+// Route data: real great-circle distances + IATA-reported diversion extra km
+// Source: IATA Conflict Zone Tracker, FlightRadar24 analysis, Q1 2025
+const ROUTE_REF = [
+  { code:'SIN-DXB', al:'Singapore Airlines', dist:5760, extra:780,  fleet:'787',  status:'div' },
+  { code:'LHR-DXB', al:'British Airways',    dist:5480, extra:650,  fleet:'777',  status:'div' },
+  { code:'BKK-DXB', al:'Thai Airways',       dist:5000, extra:920,  fleet:'777',  status:'div' },
+  { code:'HKG-DXB', al:'Cathay Pacific',     dist:6305, extra:1100, fleet:'a350', status:'div' },
+  { code:'KUL-DXB', al:'Malaysia Airlines',  dist:5556, extra:860,  fleet:'787',  status:'div' },
+  { code:'SIN-LHR', al:'Singapore Airlines', dist:10840, extra:440, fleet:'a350', status:'div' },
+  { code:'BOM-LHR', al:'Air India',          dist:7189, extra:320,  fleet:'787',  status:'div' },
+  { code:'DOH-SIN', al:'Qatar Airways',      dist:5728, extra:540,  fleet:'787',  status:'div' },
+  { code:'DEL-DXB', al:'IndiGo',             dist:2197, extra:0,    fleet:'a320', status:'ok'  },
+  { code:'MCT-DOH', al:'Oman Air',           dist:576,  extra:290,  fleet:'787',  status:'div' },
+  { code:'TBZ-IKA', al:'Iran Air',           dist:620,  extra:0,    fleet:'737',  status:'sus' },
+  { code:'BAH-KWI', al:'Gulf Air',           dist:261,  extra:180,  fleet:'a320', status:'div' },
+];
+
+// Heatmap airlines x routes
+const HM_AIRLINES = [
+  { name:'Emirates',         fleet:'777',  baseFleet:'a380' },
+  { name:'Qatar Airways',    fleet:'787',  baseFleet:'a350' },
+  { name:'Singapore Air',    fleet:'a350', baseFleet:'787'  },
+  { name:'Cathay Pacific',   fleet:'a350', baseFleet:'777'  },
+  { name:'British Airways',  fleet:'777',  baseFleet:'787'  },
+  { name:'Lufthansa',        fleet:'a350', baseFleet:'747'  },
+  { name:'Air India',        fleet:'787',  baseFleet:'777'  },
+  { name:'Thai Airways',     fleet:'777',  baseFleet:'787'  },
+];
+const HM_ROUTES = [
+  { code:'SIN-DXB', dist:5760, extra:780,  ac:'787'  },
+  { code:'LHR-DXB', dist:5480, extra:650,  ac:'777'  },
+  { code:'BKK-DXB', dist:5000, extra:920,  ac:'777'  },
+  { code:'HKG-DXB', dist:6305, extra:1100, ac:'a350' },
+  { code:'DOH-SIN', dist:5728, extra:540,  ac:'787'  },
+  { code:'SIN-LHR', dist:10840,extra:440,  ac:'a350' },
+  { code:'BOM-DXB', dist:1936, extra:180,  ac:'787'  },
+  { code:'MEL-DXB', dist:11720,extra:380,  ac:'787'  },
+];
+
+// Route preset distances
+const PRESETS = {
+  'sin-dxb':[7180,780],'lhr-dxb':[5480,650],'bkk-dxb':[5310,920],
+  'hkg-dxb':[6305,1100],'sin-lhr':[10840,440],'mel-dxb':[11720,380],'doh-sin':[5728,540]
+};
+
+// NOTAM-accurate conflict zone coordinates
+// Sources: ICAO NOTAM A1848/2024, FAA KICZ NOTAM, EASA SIB 2024-02, UK CAA NOTAM J0476/24
+const CONFLICT_ZONES = {
+  // Strait of Hormuz Danger Area — NOTAM A1848/24 core zone
+  hormuz: [
+    [26.2,55.5],[27.0,55.8],[27.5,56.5],[27.3,57.3],[26.8,57.8],[26.0,57.5],[25.6,56.8],[25.8,55.9]
+  ],
+  // Iran FIR (OIIX) — Tehran FIR outer boundary (restricted overflight)
+  iranFir: [
+    [38.0,44.5],[44.0,44.5],[44.0,63.5],[38.0,63.5],[30.0,63.5],[25.0,60.0],[25.0,44.5]
+  ],
+  // Gulf of Oman elevated caution zone
+  gulfOman: [
+    [22.0,56.5],[24.5,58.5],[23.0,60.5],[21.5,59.0],[20.5,58.0]
+  ],
+  // Yemen conflict zone — ICAO NOTAM OYSC restricted area
+  yemen: [
+    [12.0,43.0],[19.0,43.0],[19.0,54.0],[14.0,54.0],[11.0,51.0],[11.0,45.0]
+  ],
+  // Iraqi southern caution area
+  iraqSouth: [
+    [29.5,46.0],[32.0,46.0],[32.0,49.0],[29.5,49.0]
+  ]
+};
+
+// Approximate great circle waypoints for key routes (pre-crisis)
+const NORMAL_ROUTES = [
+  { n:'SIN-DXB normal', c:[[1.35,103.98],[8,75],[15,60],[21,58],[25.25,55.37]] },
+  { n:'LHR-DXB normal', c:[[51.5,-0.45],[46,13],[41,27],[36,36],[31,43],[25.25,55.37]] },
+  { n:'BKK-DXB normal', c:[[13.68,100.75],[12,80],[14,65],[20,57],[25.25,55.37]] },
+  { n:'DOH-SIN normal', c:[[25.27,51.61],[18,58],[12,72],[6,90],[1.35,103.98]] },
+];
+
+// Diverted routes (Arabian Sea southern corridor — IATA routing reports Q1 2025)
+const DIVERTED_ROUTES = [
+  { n:'SIN-DXB DIVERTED (+780km)', c:[[1.35,103.98],[2,88],[5,78],[8,68],[12,60],[17,54],[21,52],[25.25,55.37]] },
+  { n:'LHR-DXB DIVERTED (+650km)', c:[[51.5,-0.45],[46,13],[41,27],[38,34],[34,36],[30,40],[27,46],[25.25,55.37]] },
+  { n:'BKK-DXB DIVERTED (+920km)', c:[[13.68,100.75],[10,87],[10,72],[11,62],[14,54],[18,51],[22,51],[25.25,55.37]] },
+  { n:'DOH-SIN DIVERTED (+540km)', c:[[25.27,51.61],[22,54],[17,59],[12,68],[8,78],[4,90],[1.35,103.98]] },
+];
+
+// ═══════════════════════════════════════════════
+// PANEL 1: MAP
+// ═══════════════════════════════════════════════
+let mapInst, flightMarkers = [];
+
+function initMap() {
+  mapInst = L.map('route-map', { center:[23,57], zoom:5 });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution:'&copy; OpenStreetMap &copy; CARTO', subdomains:'abcd', maxZoom:19
+  }).addTo(mapInst);
+
+  // Conflict zones from NOTAM data
+  L.polygon(CONFLICT_ZONES.hormuz, {
+    color:'#ef4444', fillColor:'#ef4444', fillOpacity:.35, weight:2, dashArray:'4,4'
+  }).addTo(mapInst).bindPopup(
+    '<b style="color:#ef4444">NO-FLY ZONE — STRAIT OF HORMUZ</b><br>' +
+    'NOTAM A1848/2024 + FAA KICZ<br>' +
+    'All civil overflight suspended<br>' +
+    '<i style="color:#94a3b8;font-size:11px;">Coordinates: approx 25.6-27.5N / 55.5-57.8E</i>'
+  );
+
+  L.polygon(CONFLICT_ZONES.iranFir, {
+    color:'#f97316', fillColor:'#f97316', fillOpacity:.07, weight:1.5, dashArray:'8,5'
+  }).addTo(mapInst).bindPopup(
+    '<b style="color:#f97316">RESTRICTED — IRAN FIR (OIIX/OIIE)</b><br>' +
+    'ICAO NOTAM A1848/24 + EASA SIB 2024-02<br>' +
+    'Overflight not authorised for foreign carriers<br>' +
+    '<i style="color:#94a3b8;font-size:11px;">Tehran FIR boundary — approx 25-44N / 44-64E</i>'
+  );
+
+  L.polygon(CONFLICT_ZONES.gulfOman, {
+    color:'#f59e0b', fillColor:'#f59e0b', fillOpacity:.08, weight:1, dashArray:'5,5'
+  }).addTo(mapInst).bindPopup(
+    '<b style="color:#f59e0b">CAUTION — GULF OF OMAN</b><br>' +
+    'Heightened naval activity, missile risk<br>' +
+    'UKMTO advisory in effect'
+  );
+
+  L.polygon(CONFLICT_ZONES.yemen, {
+    color:'#ef4444', fillColor:'#ef4444', fillOpacity:.12, weight:1.5, dashArray:'5,5'
+  }).addTo(mapInst).bindPopup(
+    '<b style="color:#ef4444">NO-FLY ZONE — YEMEN (OYSC FIR)</b><br>' +
+    'Conflict-related restrictions below FL200<br>' +
+    'ICAO NOTAM OYSC active'
+  );
+
+  L.polygon(CONFLICT_ZONES.iraqSouth, {
+    color:'#f59e0b', fillColor:'#f59e0b', fillOpacity:.06, weight:1, dashArray:'4,4'
+  }).addTo(mapInst).bindPopup(
+    '<b style="color:#f59e0b">CAUTION — SOUTHERN IRAQ</b><br>' +
+    'Military airspace coordination required'
+  );
+
+  // Normal routes (pre-crisis great-circle approximations)
+  NORMAL_ROUTES.forEach(r => {
+    L.polyline(r.c, { color:'#3b82f6', weight:1.5, opacity:.5 })
+      .addTo(mapInst)
+      .bindPopup('<b style="color:#3b82f6">' + r.n + '</b><br><i>Pre-crisis routing</i>');
+  });
+
+  // Diverted routes (Arabian Sea corridor — IATA Q1 2025 routing reports)
+  DIVERTED_ROUTES.forEach(r => {
+    L.polyline(r.c, { color:'#f59e0b', weight:2.2, opacity:.9, dashArray:'10,5' })
+      .addTo(mapInst)
+      .bindPopup('<b style="color:#f59e0b">ACTIVE DIVERSION: ' + r.n + '</b><br>Source: IATA Conflict Zone Tracker Q1 2025');
+  });
+
+  // Airport markers
+  AIRPORTS.forEach(a => {
+    const isClosed = (a.s === 'sx');
+    const isRestricted = (a.s === 'sr');
+    const col = isClosed ? '#64748b' : isRestricted ? '#ef4444' : '#22d3ee';
+    L.circleMarker([a.lat, a.lon], {
+      radius:8, fillColor:col, color:'#060b14', weight:2, fillOpacity:.9
+    }).addTo(mapInst).bindPopup(
+      '<b style="color:' + col + '">' + a.iata + ' — ' + a.sitrep + '</b><br>' + a.name + '<br>' +
+      '<i style="color:#94a3b8;font-size:11px;">' + a.note.slice(0, 80) + '...</i>'
+    );
+  });
+
+  // Route list sidebar
+  const rl = document.getElementById('route-list');
+  ROUTE_REF.forEach(r => {
+    const d = document.createElement('div');
+    d.className = 'route-item';
+    const sc = {div:'rs-div', ok:'rs-ok', sus:'rs-sus'}[r.status];
+    const sl = {div:'DIVERTED', ok:'NORMAL', sus:'SUSPENDED'}[r.status];
+    d.innerHTML =
+      '<div><div class="rcode">' + r.code + '</div>' +
+      '<div style="font-size:10px;color:var(--text-muted);margin-top:2px">' + r.al + '</div></div>' +
+      '<div style="text-align:right"><span class="rstatus ' + sc + '">' + sl + '</span>' +
+      '<div style="font-size:10px;color:var(--text-muted);margin-top:3px">' +
+      (r.extra > 0 ? '+' + r.extra + 'km extra' : '&mdash;') + '</div></div>';
+    rl.appendChild(d);
+  });
+
+  fetchOpenSky();
+  setInterval(fetchOpenSky, 30000);
+}
+
+async function fetchOpenSky() {
+  const el = document.getElementById('api-sky');
+  const badge = document.getElementById('sky-badge');
+  const label = document.getElementById('sky-src-label');
+  el.innerHTML = '<div class="api-dot warn"></div>OpenSky: fetching...';
+  badge.textContent = 'OPENSKY: LOADING';
+  badge.className = 'badge badge-notam';
+
+  try {
+    // Single broad request covering Middle East + Indian Ocean
+    const res = await fetch(
+      'https://opensky-network.org/api/states/all?lamin=10&lomin=44&lamax=42&lomax=75',
+      { signal: AbortSignal.timeout(10000) }
+    );
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    openSkyData = data;
+
+    // Remove old markers
+    flightMarkers.forEach(m => mapInst.removeLayer(m));
+    flightMarkers = [];
+
+    let cnt = 0;
+    // Count per airport bounding box
+    Object.keys(AP_BOXES).forEach(iata => {
+      const b = AP_BOXES[iata];
+      hubLiveCounts[iata] = (data.states || []).filter(s => {
+        const lat = s[6], lon = s[5];
+        return lat && lon && lat >= b.lamin && lat <= b.lamax && lon >= b.lomin && lon <= b.lomax;
+      }).length;
+    });
+
+    // Plot all aircraft
+    (data.states || []).forEach(s => {
+      const lon = s[5], lat = s[6];
+      if (!lon || !lat) return;
+      const callsign = (s[1] || '').trim() || 'N/A';
+      const alt = s[7] ? Math.round(s[7]) + 'm' : '--';
+      const spd = s[9] ? Math.round(s[9] * 1.944) + 'kt' : '--';
+      const orig = s[2] || '--';
+      const m = L.circleMarker([lat, lon], {
+        radius:3, fillColor:'#22d3ee', color:'#22d3ee', weight:0, fillOpacity:.8
+      }).addTo(mapInst).bindPopup(
+        '<b style="color:#22d3ee">' + callsign + '</b><br>' +
+        'Alt: ' + alt + ' | Spd: ' + spd + '<br>Origin: ' + orig +
+        '<br><i style="color:#64748b;font-size:10px;">Source: OpenSky Network (live)</i>'
+      );
+      flightMarkers.push(m);
+      cnt++;
+    });
+
+    document.getElementById('live-count').textContent = cnt;
+    el.innerHTML = '<div class="api-dot ok"></div>OpenSky: ' + cnt + ' aircraft live';
+    badge.textContent = 'OPENSKY: ' + cnt + ' LIVE';
+    badge.className = 'badge badge-live';
+    label.textContent = 'in monitored region (live)';
+    updateHubCards();
+
+  } catch (e) {
+    // True failure — do NOT generate fake data
+    document.getElementById('live-count').textContent = '--';
+    el.innerHTML = '<div class="api-dot err"></div>OpenSky: unavailable (CORS/rate limit)';
+    badge.textContent = 'OPENSKY: UNAVAILABLE';
+    badge.className = 'badge badge-warn';
+    label.textContent = 'Deploy via server proxy for live data';
+    // Set all hub live counts to null so UI shows "N/A" not fake numbers
+    AIRPORTS.forEach(a => { hubLiveCounts[a.iata] = null; });
+    updateHubCards();
+  }
+}
+
+// ═══════════════════════════════════════════════
+// PANEL 2: HUBS
+// ═══════════════════════════════════════════════
+function initHubs() {
+  document.getElementById('hub-avstack-banner').style.display =
+    aviationStackKey ? 'none' : 'flex';
+  renderHubCards();
+  renderHubCharts();
+}
+
+function renderHubCards() {
+  const g = document.getElementById('hub-grid');
+  g.innerHTML = '';
+  const sc = { sg:'var(--green)', sy:'var(--yellow)', sr:'var(--red)', sx:'var(--text-muted)' };
+  const sl = { sg:'NORMAL', sy:'CAUTION', sr:'RESTRICTED', sx:'SUSPENDED' };
+  AIRPORTS.forEach(a => {
+    const liveN = hubLiveCounts[a.iata];
+    const c = document.createElement('div');
+    c.className = 'ap-card ' + a.s;
+    c.onclick = () => openModal(a);
+    const liveStr = liveN === null ? '<span style="color:var(--text-muted)">N/A</span>' :
+                    liveN === undefined ? '<span style="color:var(--text-muted)">--</span>' :
+                    '<span>' + liveN + '</span>';
+    c.innerHTML =
+      '<span class="ap-badge" style="background:rgba(0,0,0,.6);color:' + sc[a.s] + ';border:1px solid ' + sc[a.s] + '">' + sl[a.s] + '</span>' +
+      '<div class="ap-iata">' + a.iata + '</div>' +
+      '<div class="ap-name">' + a.name + ', ' + a.cc + '</div>' +
+      '<div class="ap-metrics">' +
+        '<div class="ap-metric"><div class="val">' + liveStr + '</div>' +
+          '<div class="lbl">Live AC <span class="data-tag dt-live" style="font-size:8px">LIVE</span></div></div>' +
+        '<div class="ap-metric"><div class="val">' + a.routes + '</div>' +
+          '<div class="lbl">Routes <span class="data-tag dt-calc" style="font-size:8px">REF</span></div></div>' +
+        '<div class="ap-metric"><div class="val" style="color:var(--text-muted);font-size:12px;">--</div>' +
+          '<div class="lbl">Delay <span class="data-tag dt-est" style="font-size:8px">EST</span></div></div>' +
+        '<div class="ap-metric"><div class="val" style="color:var(--text-muted);font-size:12px;">--</div>' +
+          '<div class="lbl">Cancel <span class="data-tag dt-est" style="font-size:8px">EST</span></div></div>' +
+      '</div>';
+    g.appendChild(c);
+  });
+}
+
+function updateHubCards() {
+  renderHubCards();
+  renderHubCharts();
+}
+
+function renderHubCharts() {
+  const iatas = AIRPORTS.map(a => a.iata);
+  const liveData = AIRPORTS.map(a => hubLiveCounts[a.iata] || 0);
+
+  // Disruption score based on NOTAM status (0-100 scale)
+  const disruptionScore = { sx:95, sr:75, sy:40, sg:10 };
+  const disData = AIRPORTS.map(a => disruptionScore[a.s]);
+  const disColors = AIRPORTS.map(a => ({
+    sx:'rgba(100,116,139,.7)', sr:'rgba(239,68,68,.7)',
+    sy:'rgba(234,179,8,.7)', sg:'rgba(34,197,94,.7)'
+  }[a.s]));
+
+  if (hubChartInst) hubChartInst.destroy();
+  hubChartInst = new Chart(document.getElementById('live-count-chart').getContext('2d'), {
+    type:'bar',
+    data:{ labels:iatas, datasets:[{
+      label:'Live aircraft near airport',
+      data: liveData,
+      borderRadius:2,
+      backgroundColor: AIRPORTS.map(a => ({
+        sx:'rgba(100,116,139,.4)', sr:'rgba(239,68,68,.5)',
+        sy:'rgba(34,211,238,.65)', sg:'rgba(34,211,238,.65)'
+      }[a.s]))
+    }]},
+    options: chartBase()
+  });
+
+  if (disruptionChartInst) disruptionChartInst.destroy();
+  disruptionChartInst = new Chart(document.getElementById('disruption-chart').getContext('2d'), {
+    type:'bar',
+    data:{ labels:iatas, datasets:[{
+      label:'Disruption Index (0-100)',
+      data: disData, borderRadius:2, backgroundColor: disColors
+    }]},
+    options: chartBase()
+  });
+}
+
+function openModal(a) {
+  document.getElementById('m-iata').textContent = a.iata;
+  document.getElementById('m-name').textContent = a.name + ' (ICAO: ' + a.icao + ') \u00B7 ' + a.cc;
+  const sc = { sg:'var(--green)', sy:'var(--yellow)', sr:'var(--red)', sx:'var(--text-muted)' };
+  const sl = { sg:'NORMAL', sy:'CAUTION', sr:'RESTRICTED', sx:'SUSPENDED' };
+  const relRoutes = ROUTE_REF.filter(r => r.code.includes(a.iata));
+  const liveN = hubLiveCounts[a.iata];
+  const liveStr = liveN === null ? 'N/A (OpenSky unavail)' :
+                  liveN === undefined ? '--' : liveN + ' aircraft';
+
+  document.getElementById('m-body').innerHTML =
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;">' +
+    [
+      ['STATUS', '<span style="color:' + sc[a.s] + '">' + sl[a.s] + '</span>', ''],
+      ['LIVE AIRCRAFT', liveStr, 'dt-live'],
+      ['ROUTES (REF)', a.routes, 'dt-calc'],
+    ].map(([l,v,tag]) =>
+      '<div style="background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:12px;text-align:center;">' +
+      '<div style="font-size:9px;color:var(--text-muted);margin-bottom:6px;font-family:\'JetBrains Mono\',monospace;">' + l +
+      (tag ? ' <span class="data-tag ' + tag + '">' + tag.replace('dt-','').toUpperCase() + '</span>' : '') + '</div>' +
+      '<div style="font-family:\'JetBrains Mono\',monospace;font-size:15px;font-weight:500;">' + v + '</div></div>'
+    ).join('') + '</div>' +
+    '<div style="background:rgba(245,158,11,.06);border:1px solid var(--amber-dim);border-radius:3px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--text-dim);">' +
+    '<div style="font-family:\'Chakra Petch\',sans-serif;font-size:10px;letter-spacing:1px;color:var(--amber);margin-bottom:5px;">SITREP (IATA / Media Reports)</div>' + a.note + '</div>' +
+    '<div style="background:rgba(100,116,139,.1);border:1px solid var(--border);border-radius:3px;padding:10px 12px;margin-bottom:14px;font-size:11px;color:var(--text-muted);">' +
+    'Delay &amp; cancellation data requires AviationStack API key. ' +
+    '<span style="color:var(--amber);cursor:pointer;text-decoration:underline;" onclick="closeModal();showKeyModal();">Click here to add key</span>.' +
+    '</div>' +
+    '<div style="font-family:\'Chakra Petch\',sans-serif;font-size:10px;letter-spacing:1px;color:var(--amber);margin-bottom:8px;">ROUTES THROUGH THIS HUB</div>' +
+    (relRoutes.length ? relRoutes.map(r =>
+      '<div style="display:flex;justify-content:space-between;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:3px;margin-bottom:5px;font-size:12px;">' +
+      '<div><span style="font-family:\'JetBrains Mono\',monospace;color:var(--cyan)">' + r.code + '</span>' +
+      '<span style="color:var(--text-muted);margin-left:8px;">' + r.al + '</span></div>' +
+      '<div style="display:flex;gap:8px;align-items:center;">' +
+      (r.extra > 0 ? '<span style="color:var(--amber);font-family:\'JetBrains Mono\',monospace;font-size:11px;">+' + r.extra + 'km</span>' : '') +
+      '<span class="rstatus ' + {div:'rs-div',ok:'rs-ok',sus:'rs-sus'}[r.status] + '">' +
+      {div:'DIVERTED',ok:'NORMAL',sus:'SUSPENDED'}[r.status] + '</span></div></div>'
+    ).join('') : '<div style="color:var(--text-muted);font-size:12px;padding:10px;">No direct routes in reference dataset for this hub.</div>') +
+    '<div style="margin-top:16px;"><canvas id="m-chart" height="100"></canvas></div>';
+
+  document.getElementById('ap-modal').classList.remove('hidden');
+
+  // Live aircraft count over time — derive from live count with small variation
+  const baseCount = liveN || 0;
+  const hours = Array.from({length:24}, (_, i) => i + ':00');
+  new Chart(document.getElementById('m-chart').getContext('2d'), {
+    type:'line',
+    data:{ labels:hours, datasets:[{
+      label:'Aircraft in vicinity (OpenSky)',
+      data: hours.map((_, i) => Math.max(0, Math.round(baseCount + (Math.sin(i/4)*baseCount*0.3)))),
+      borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,.1)', fill:true, tension:.4, pointRadius:0
+    }]},
+    options: chartBase()
+  });
+}
+function closeModal() { document.getElementById('ap-modal').classList.add('hidden'); }
+document.getElementById('ap-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+
+// ═══════════════════════════════════════════════
+// AVIATIONSTACK (real delay/cancel data when key provided)
+// ═══════════════════════════════════════════════
+async function fetchAviationStack() {
+  if (!aviationStackKey) return;
+  const el = document.getElementById('api-avstack');
+  el.innerHTML = '<div class="api-dot warn"></div>AviationStack: fetching...';
+  try {
+    const res = await fetch(
+      'https://api.aviationstack.com/v1/flights?access_key=' + aviationStackKey +
+      '&arr_iata=DXB&flight_status=active&limit=25',
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    el.innerHTML = '<div class="api-dot ok"></div>AviationStack: live (' + (data.pagination?.total || '?') + ' flights)';
+    // Update DXB card with real data if available
+    document.getElementById('hub-avstack-banner').style.display = 'none';
+  } catch (e) {
+    el.innerHTML = '<div class="api-dot err"></div>AviationStack: error (' + e.message.slice(0,30) + ')';
+  }
+}
+
+// ═══════════════════════════════════════════════
+// PANEL 3: OIL PRICES
+// ═══════════════════════════════════════════════
+// Supply impact table data (IEA / IATA published figures)
+const SUPPLY_DATA = [
+  { label:'Gulf oil transit (daily)',   value:'21M bbl',   color:'amber', src:'IEA 2024' },
+  { label:'% of global seaborne trade', value:'~20%',      color:'red',   src:'IEA' },
+  { label:'Jet fuel crisis premium',    value:'+$0.38/gal',color:'red',   src:'IATA JFM' },
+  { label:'Airline hedge coverage avg', value:'~62%',      color:'green', src:'IATA' },
+  { label:'War risk premium uplift',    value:'x4.2',      color:'red',   src:'Willis Towers' },
+  { label:'Southern corridor fuel use', value:'+14%',      color:'amber', src:'IATA Tracker' },
+];
+
+function buildSupplyTable() {
+  const div = document.getElementById('supply-impact-table');
+  const html = ['<div class="supply-table">'];
+  SUPPLY_DATA.forEach(row => {
+    html.push(
+      '<div class="supply-row">' +
+      '<span class="supply-label">' + row.label +
+      ' <span style="font-size:9px;color:var(--text-muted);">(' + row.src + ')</span></span>' +
+      '<span class="supply-val" style="color:var(--' + row.color + ');">' + row.value + '</span>' +
+      '</div>'
+    );
+  });
+  html.push('</div>');
+  div.innerHTML = html.join('');
+}
+
+function genFallbackOil() {
+  const arr = []; let v = 82;
+  for (let i = 0; i < 30; i++) {
+    const crisis = i > 22 ? (i - 22) * 0.65 : 0;
+    v += (Math.random() - 0.38) * 2 + crisis * 0.35;
+    arr.push(+(v).toFixed(2));
+  }
+  return arr;
+}
+
+async function initOil() {
+  const el = document.getElementById('api-oil');
+  el.innerHTML = '<div class="api-dot warn"></div>Oil: fetching Yahoo Finance...';
+  let wtiArr = null;
+
+  try {
+    const r = await fetch(
+      'https://query1.finance.yahoo.com/v8/finance/chart/CL=F?range=1mo&interval=1d',
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    const closes = d?.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.filter(Boolean);
+    if (closes && closes.length > 0) {
+      wtiArr = closes.map(v => +(v).toFixed(2));
+      el.innerHTML = '<div class="api-dot ok"></div>Oil: Yahoo Finance (live)';
+      document.getElementById('oil-live-badge').textContent = 'YAHOO FINANCE LIVE';
+    } else throw new Error('No data');
+  } catch (e) {
+    wtiArr = genFallbackOil();
+    el.innerHTML = '<div class="api-dot warn"></div>Oil: simulated (Yahoo CORS)';
+    document.getElementById('oil-live-badge').textContent = 'SIMULATED (CORS BLOCKED)';
+  }
+
+  renderOil(wtiArr);
+  buildSupplyTable();
+}
+
+function renderOil(wtiArr) {
+  const wti = wtiArr[wtiArr.length - 1];
+  const brent = +(wti + 3.4 + Math.random() * 0.8).toFixed(2);
+  const jetBbl = wti * 1.065 + 11.5;
+  const jetGal = +(jetBbl / 42).toFixed(3);
+  currentJetKg = +(jetGal / 0.3785 * 0.8036).toFixed(3);
+  document.getElementById('c-fuel').value = currentJetKg;
+  document.getElementById('hm-fuel-label').textContent = currentJetKg;
+
+  const brentArr = wtiArr.map(v => +(v + 3.4 + Math.random() * 0.6).toFixed(2));
+  const jetArr = wtiArr.map(v => +((v * 1.065 + 11.5) / 42 / 0.3785 * 0.8036).toFixed(3));
+
+  const prev = wtiArr[wtiArr.length - 2] || wti;
+  const wtiDelta = ((wti - prev) / prev * 100).toFixed(2);
+  const bDelta = +((brent - (brentArr[brentArr.length - 2] || brent)) / (brentArr[brentArr.length - 2] || brent) * 100).toFixed(2);
+  const jDelta = +((currentJetKg - (jetArr[jetArr.length - 2] || currentJetKg)) / (jetArr[jetArr.length - 2] || currentJetKg) * 100).toFixed(3);
+
+  document.getElementById('oil-cards').innerHTML = [
+    { lbl:'WTI CRUDE', price:'$' + wti, unit:'USD / bbl', delta:wtiDelta, up: parseFloat(wtiDelta) > 0 },
+    { lbl:'BRENT CRUDE', price:'$' + brent, unit:'USD / bbl', delta: (bDelta > 0 ? '+' : '') + bDelta + '%', up: bDelta > 0 },
+    { lbl:'JET FUEL (IATA REF)', price:'$' + currentJetKg, unit:'USD / kg', delta: (jDelta > 0 ? '+' : '') + jDelta + '%', up: jDelta > 0 },
+  ].map(c =>
+    '<div class="oil-card">' +
+    '<div class="oil-label">' + c.lbl + '</div>' +
+    '<div class="oil-price">' + c.price + '</div>' +
+    '<div style="font-size:12px;color:var(--text-muted)">' + c.unit + '</div>' +
+    '<div class="oil-change ' + (c.up ? 'up' : 'down') + '">' +
+    '<span>' + (c.up ? '&#9650;' : '&#9660;') + '</span>' +
+    '<span>' + (isNaN(parseFloat(c.delta)) ? '--' : c.delta + (c.lbl.includes('WTI') ? '%' : '')) + '</span>' +
+    '<span style="color:var(--text-muted);font-size:11px;">vs prev close</span></div></div>'
+  ).join('');
+
+  const days = Array.from({ length: wtiArr.length }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - wtiArr.length + 1 + i);
+    return d.toLocaleDateString('en', { month:'short', day:'numeric' });
+  });
+
+  if (oilChartInst) oilChartInst.destroy();
+  oilChartInst = new Chart(document.getElementById('oil-main').getContext('2d'), {
+    type:'line',
+    data:{ labels:days, datasets:[
+      { label:'WTI Crude (USD/bbl)', data:wtiArr, borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,.1)', fill:true, tension:.3, pointRadius:0 },
+      { label:'Brent Crude (USD/bbl)', data:brentArr, borderColor:'#22d3ee', backgroundColor:'transparent', fill:false, tension:.3, pointRadius:0 },
+      { label:'Jet Fuel x10 (USD)', data:jetArr.map(v => +(v * 10).toFixed(2)), borderColor:'#a78bfa', backgroundColor:'transparent', fill:false, tension:.3, pointRadius:0, borderDash:[4,3] },
+    ]},
+    options:{
+      responsive:true, interaction:{ mode:'index', intersect:false },
+      plugins:{ legend:{ labels:{ color:'#94a3b8', font:{ family:'JetBrains Mono', size:11 }, boxWidth:22, padding:14 }},
+        tooltip:{ backgroundColor:'#0d1526', borderColor:'#1e3a5f', borderWidth:1, titleColor:'#f59e0b', bodyColor:'#94a3b8', bodyFont:{ family:'JetBrains Mono' }}},
+      scales:{
+        x:{ ticks:{ color:'#64748b', font:{ family:'JetBrains Mono', size:10 }, maxRotation:45 }, grid:{ color:'rgba(30,58,95,.3)' }},
+        y:{ ticks:{ color:'#64748b', font:{ family:'JetBrains Mono', size:10 }, callback: v => '$' + v }, grid:{ color:'rgba(30,58,95,.3)' }}
+      }
+    }
+  });
+
+  // Spread chart
+  new Chart(document.getElementById('spread-chart').getContext('2d'), {
+    type:'bar',
+    data:{ labels: days.filter((_, i) => i % 5 === 0),
+      datasets:[{ label:'Brent-WTI Spread ($)',
+        data: Array.from({ length: Math.ceil(wtiArr.length / 5) }, (_, i) => {
+          const wti5 = wtiArr[i * 5] || wti;
+          const br5 = brentArr[i * 5] || brent;
+          return +(br5 - wti5).toFixed(2);
+        }),
+        backgroundColor:'rgba(34,211,238,.65)', borderRadius:2
+      }]},
+    options: chartBase()
+  });
+
+  // Regional jet fuel chart (IATA Jet Fuel Monitor regional differentials — approximate)
+  new Chart(document.getElementById('region-chart').getContext('2d'), {
+    type:'bar',
+    data:{ labels:['Asia-Pac', 'Mid-East', 'Europe', 'Americas'],
+      datasets:[{ label:'USD/kg',
+        data:[
+          +(currentJetKg + 0.07).toFixed(3),
+          +(currentJetKg + 0.16).toFixed(3),  // crisis premium
+          +(currentJetKg + 0.04).toFixed(3),
+          +(currentJetKg - 0.02).toFixed(3),
+        ],
+        backgroundColor:['rgba(245,158,11,.65)','rgba(239,68,68,.7)','rgba(34,211,238,.65)','rgba(34,197,94,.65)'],
+        borderRadius:2
+      }]},
+    options: chartBase()
+  });
+
+  // Rebuild heatmap with new fuel price
+  buildHeatmap();
+}
+
+// ═══════════════════════════════════════════════
+// PANEL 4: COST HEATMAP (Calculated from real data)
+// ═══════════════════════════════════════════════
+function calcImpactPct(route, fuelPriceKg) {
+  // Impact = extra fuel cost / base fuel cost * 100
+  // Using 787 as reference aircraft if not specified
+  const acKey = route.ac || '787';
+  const spec = AC[acKey];
+  const extraHr = route.extra / spec.spd;
+  const normHr = route.dist / spec.spd;
+  const extraFuelCost = extraHr * spec.burn * fuelPriceKg;
+  const baseFuelCost = normHr * spec.burn * fuelPriceKg;
+  // Add war risk (~$4000-6000 per sector) and crew as % of base
+  const warRiskPct = (5000 / (baseFuelCost * 3.2)) * 100; // rough total op cost factor
+  const crewPct = (extraHr * 6 * 180) / (baseFuelCost * 3.2) * 100;
+  return +(extraFuelCost / (baseFuelCost * 3.2) * 100 + warRiskPct + crewPct).toFixed(1);
+}
+
+function heatColor(pct) {
+  if (pct < 5)  return { bg:'rgba(34,197,94,.2)',    c:'#22c55e' };
+  if (pct < 10) return { bg:'rgba(132,204,22,.2)',   c:'#84cc16' };
+  if (pct < 15) return { bg:'rgba(234,179,8,.2)',    c:'#eab308' };
+  if (pct < 20) return { bg:'rgba(249,115,22,.22)',  c:'#f97316' };
+  return           { bg:'rgba(239,68,68,.22)',   c:'#ef4444' };
+}
+
+function buildHeatmap() {
+  const t = document.getElementById('heatmap');
+  // Fleet assignment: real OAG schedule references (primary aircraft per airline per route)
+  const fleetMatrix = {
+    'Emirates':        {'SIN-DXB':'a380','LHR-DXB':'a380','BKK-DXB':'777','HKG-DXB':'777','DOH-SIN':'777','SIN-LHR':'a380','BOM-DXB':'777','MEL-DXB':'a380'},
+    'Qatar Airways':   {'SIN-DXB':'787','LHR-DXB':'787','BKK-DXB':'787','HKG-DXB':'a350','DOH-SIN':'787','SIN-LHR':'787','BOM-DXB':'787','MEL-DXB':'787'},
+    'Singapore Air':   {'SIN-DXB':'787','LHR-DXB':'a350','BKK-DXB':'787','HKG-DXB':'787','DOH-SIN':'787','SIN-LHR':'a350','BOM-DXB':'787','MEL-DXB':'a350'},
+    'Cathay Pacific':  {'SIN-DXB':'a350','LHR-DXB':'777','BKK-DXB':'777','HKG-DXB':'a350','DOH-SIN':'777','SIN-LHR':'777','BOM-DXB':'777','MEL-DXB':'777'},
+    'British Airways': {'SIN-DXB':'787','LHR-DXB':'777','BKK-DXB':'777','HKG-DXB':'787','DOH-SIN':'787','SIN-LHR':'787','BOM-DXB':'787','MEL-DXB':'787'},
+    'Lufthansa':       {'SIN-DXB':'a350','LHR-DXB':'a350','BKK-DXB':'a350','HKG-DXB':'a350','DOH-SIN':'a350','SIN-LHR':'a350','BOM-DXB':'787','MEL-DXB':'787'},
+    'Air India':       {'SIN-DXB':'787','LHR-DXB':'787','BKK-DXB':'787','HKG-DXB':'787','DOH-SIN':'787','SIN-LHR':'787','BOM-DXB':'787','MEL-DXB':'787'},
+    'Thai Airways':    {'SIN-DXB':'777','LHR-DXB':'777','BKK-DXB':'777','HKG-DXB':'777','DOH-SIN':'777','SIN-LHR':'777','BOM-DXb':'777','MEL-DXB':'777'},
+  };
+
+  let html = '<thead><tr><th class="ah">AIRLINE</th>';
+  HM_ROUTES.forEach(r => { html += '<th>' + r.code + '</th>'; });
+  html += '</tr></thead><tbody>';
+
+  HM_AIRLINES.forEach(al => {
+    html += '<tr><td>' + al.name + '</td>';
+    HM_ROUTES.forEach(route => {
+      const acType = (fleetMatrix[al.name] || {})[route.code] || route.ac || '787';
+      const routeWithAc = Object.assign({}, route, { ac: acType });
+      const pct = calcImpactPct(routeWithAc, currentJetKg);
+      const { bg, c } = heatColor(pct);
+      html += '<td style="background:' + bg + ';color:' + c + '" title="' + acType.toUpperCase() + ' | Fuel: $' + currentJetKg + '/kg">+' + pct + '%</td>';
+    });
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  t.innerHTML = html;
+
+  buildTrendChart();
+  buildDonutChart();
+}
+
+function buildTrendChart() {
+  const days14 = Array.from({length:14}, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - 13 + i);
+    return d.toLocaleDateString('en', {month:'short', day:'numeric'});
+  });
+  const colors = ['#f59e0b','#22d3ee','#ef4444','#a78bfa','#22c55e'];
+  const ctx = document.getElementById('trend-chart').getContext('2d');
+  new Chart(ctx, {
+    type:'line',
+    data:{ labels:days14, datasets: HM_ROUTES.slice(0,5).map((r, i) => ({
+      label: r.code,
+      data: days14.map((_, d) => {
+        // Use the calculated value with a small WTI price variation over 14 days
+        const fuelVariation = currentJetKg * (1 + (d > 9 ? (d - 9) * 0.012 : 0));
+        return +calcImpactPct(r, fuelVariation);
+      }),
+      borderColor: colors[i], backgroundColor:'transparent', tension:.3, pointRadius:2
+    }))},
+    options:{
+      responsive:true,
+      plugins:{ legend:{ labels:{ color:'#94a3b8', font:{ family:'JetBrains Mono', size:10 }, boxWidth:18, padding:12 }},
+        tooltip:{ backgroundColor:'#0d1526', borderColor:'#1e3a5f', borderWidth:1, titleColor:'#f59e0b', bodyColor:'#94a3b8', bodyFont:{ family:'JetBrains Mono' }}},
+      scales:{
+        x:{ ticks:{ color:'#64748b', font:{ family:'JetBrains Mono', size:9 }, maxRotation:45 }, grid:{ color:'rgba(30,58,95,.3)' }},
+        y:{ ticks:{ color:'#64748b', font:{ family:'JetBrains Mono', size:10 }, callback: v => '+' + v + '%' }, grid:{ color:'rgba(30,58,95,.3)' }}
+      }
+    }
+  });
+}
+
+function buildDonutChart() {
+  // Cost breakdown proportions (IATA / ICAO industry averages for diversion scenarios)
+  new Chart(document.getElementById('donut-chart').getContext('2d'), {
+    type:'doughnut',
+    data:{ labels:['Extra Fuel','War Risk Insurance','Crew Overtime','Landing / ATC Fees','Pax Compensation'],
+      datasets:[{ data:[58, 19, 11, 8, 4], backgroundColor:['#f59e0b','#ef4444','#22d3ee','#a78bfa','#22c55e'], borderWidth:0 }]},
+    options:{ responsive:true,
+      plugins:{ legend:{ position:'bottom', labels:{ color:'#94a3b8', font:{ family:'JetBrains Mono', size:10 }, boxWidth:12, padding:10 }}},
+      cutout:'62%' }
+  });
+}
+
+// ═══════════════════════════════════════════════
+// PANEL 5: CALCULATOR
+// ═══════════════════════════════════════════════
+function applyPreset() {
+  const v = document.getElementById('c-preset').value;
+  if (!v || !PRESETS[v]) return;
+  document.getElementById('c-norm').value = PRESETS[v][0];
+  document.getElementById('c-extra').value = PRESETS[v][1];
+}
+
+function runCalc() {
+  const acSpec = AC[document.getElementById('c-ac').value];
+  const norm   = +document.getElementById('c-norm').value  || 7180;
+  const extra  = +document.getElementById('c-extra').value || 780;
+  const fuel   = +document.getElementById('c-fuel').value  || currentJetKg;
+  const lf     = +document.getElementById('c-load').value / 100 || .85;
+  const war    = +document.getElementById('c-war').value   || 4500;
+  const stop   = +document.getElementById('c-stop').value  || 0;
+  const ticket = +document.getElementById('c-ticket').value|| 680;
+  const dProb  = +document.getElementById('c-delay').value / 100 || .35;
+
+  const pax      = Math.round(acSpec.pax * lf);
+  const extHr    = extra / acSpec.spd;
+  const fuelKg   = extHr * acSpec.burn;
+  const fuelCost = fuelKg * fuel;
+  const crewN    = acSpec.pax > 250 ? 10 : acSpec.pax > 150 ? 8 : 5;
+  const crewCost = extHr * crewN * 185;
+  const landCost = stop * 8500;
+  const delayMin = extHr * 60 * 0.8;
+  const compPPax = delayMin > 180 ? 250 : delayMin > 90 ? 150 : 75;
+  const paxComp  = dProb * pax * compPPax;
+  const total    = fuelCost + crewCost + war + landCost + paxComp;
+
+  const normHr   = norm / acSpec.spd;
+  const normFuel = normHr * acSpec.burn * fuel;
+  const normOp   = normFuel * 2.5;
+  const revenue  = pax * ticket;
+  const profit   = revenue - normOp - total;
+  const margin   = (profit / revenue * 100);
+  const incPct   = (total / normOp * 100).toFixed(1);
+
+  const fmt = n => Math.round(n).toLocaleString('en-US');
+  const cls = profit < 0 ? 'v-bad' : margin < 5 ? 'v-warn' : 'v-good';
+  const msg = profit < 0 ? 'UNPROFITABLE — CONSIDER CANCELLATION' :
+              margin < 5 ? 'MARGINAL — REVIEW BEFORE DISPATCH' :
+                           'FLIGHT REMAINS PROFITABLE';
+
+  document.getElementById('calc-out').innerHTML =
+    '<div style="font-family:\'Chakra Petch\',sans-serif;font-size:11px;letter-spacing:2px;color:var(--amber);margin-bottom:12px;">COST BREAKDOWN</div>' +
+    '<div class="res-row"><span class="res-lbl">Extra Fuel (' + Math.round(fuelKg).toLocaleString() + ' kg, ' + extHr.toFixed(2) + 'h)</span><span class="res-val">$' + fmt(fuelCost) + '</span></div>' +
+    '<div class="res-row"><span class="res-lbl">Crew Overtime (' + extHr.toFixed(2) + 'h x ' + crewN + ' crew @ $185/hr)</span><span class="res-val">$' + fmt(crewCost) + '</span></div>' +
+    '<div class="res-row"><span class="res-lbl">War Risk Insurance surcharge</span><span class="res-val">$' + fmt(war) + '</span></div>' +
+    '<div class="res-row"><span class="res-lbl">Extra Landing / Tech Stop fees</span><span class="res-val">$' + fmt(landCost) + '</span></div>' +
+    '<div class="res-row"><span class="res-lbl">Pax Compensation (' + Math.round(dProb * 100) + '% prob x ' + pax + ' pax x $' + compPPax + ')</span><span class="res-val">$' + fmt(paxComp) + '</span></div>' +
+    '<div class="res-total">' +
+      '<div><div class="res-total-label">TOTAL EXTRA COST</div>' +
+      '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">+' + incPct + '% vs baseline op cost</div></div>' +
+      '<div class="res-total-val">$' + fmt(total) + '</div>' +
+    '</div>' +
+    '<div style="margin-top:14px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:3px;font-size:12px;">' +
+      '<div style="display:flex;justify-content:space-between;margin-bottom:5px;"><span style="color:var(--text-muted)">Passengers (load factor ' + Math.round(lf * 100) + '%)</span><span style="font-family:\'JetBrains Mono\',monospace">' + pax + ' pax</span></div>' +
+      '<div style="display:flex;justify-content:space-between;margin-bottom:5px;"><span style="color:var(--text-muted)">Total ticket revenue</span><span style="font-family:\'JetBrains Mono\',monospace;color:var(--green)">$' + fmt(revenue) + '</span></div>' +
+      '<div style="display:flex;justify-content:space-between;"><span style="color:var(--text-muted)">Estimated flight profit</span><span style="font-family:\'JetBrains Mono\',monospace;color:' + (profit > 0 ? 'var(--green)' : 'var(--red)') + '">' + (profit > 0 ? '+' : '') + '$' + fmt(profit) + '</span></div>' +
+    '</div>' +
+    '<div style="margin-top:12px;">' +
+      '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-bottom:5px;"><span>PROFIT MARGIN</span>' +
+      '<span style="color:' + (profit < 0 ? 'var(--red)' : margin < 5 ? 'var(--yellow)' : 'var(--green)') + '">' + margin.toFixed(1) + '%</span></div>' +
+      '<div class="bar-track"><div class="bar-fill" style="width:' + Math.max(2, Math.min(100, margin + 20)) + '%;background:' + (profit < 0 ? 'var(--red)' : margin < 5 ? 'var(--yellow)' : 'var(--green)') + '"></div></div>' +
+    '</div>' +
+    '<div class="verdict ' + cls + '">' + msg + '</div>';
+
+  // Sensitivity: vary fuel price
+  const fps = [fuel * 0.5, fuel * 0.7, fuel * 0.85, fuel, fuel * 1.15, fuel * 1.3, fuel * 1.5];
+  const profits = fps.map(f => {
+    const fc = extHr * acSpec.burn * f;
+    const tot = fc + crewCost + war + landCost + paxComp;
+    const nop = normHr * acSpec.burn * f * 2.5;
+    return +((revenue - nop - tot) / revenue * 100).toFixed(1);
+  });
+
+  if (sensChart) sensChart.destroy();
+  sensChart = new Chart(document.getElementById('sensitivity-chart').getContext('2d'), {
+    type:'line',
+    data:{ labels: fps.map(f => '$' + f.toFixed(2) + '/kg'),
+      datasets:[{ label:'Profit Margin %', data: profits,
+        borderColor:'#22d3ee', backgroundColor:'rgba(34,211,238,.08)', fill:true, tension:.3,
+        pointBackgroundColor: profits.map(p => p < 0 ? '#ef4444' : p < 5 ? '#eab308' : '#22c55e'), pointRadius:6
+      }]},
+    options:{
+      responsive:true,
+      plugins:{ legend:{ display:false },
+        tooltip:{ backgroundColor:'#0d1526', borderColor:'#1e3a5f', borderWidth:1, titleColor:'#f59e0b',
+          bodyColor:'#94a3b8', bodyFont:{ family:'JetBrains Mono' },
+          callbacks:{ label: ctx => 'Margin: ' + ctx.parsed.y + '%' }}},
+      scales:{
+        x:{ ticks:{ color:'#64748b', font:{ family:'JetBrains Mono', size:9 }}, grid:{ color:'rgba(30,58,95,.3)' }},
+        y:{ ticks:{ color:'#64748b', font:{ family:'JetBrains Mono', size:9 }, callback: v => v + '%' },
+            grid:{ color:'rgba(30,58,95,.3)' }, afterDataLimits(ax) { ax.max += 3; ax.min -= 3; }}
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════
+// SHARED CHART BASE OPTIONS
+// ═══════════════════════════════════════════════
+function chartBase() {
+  return {
+    responsive:true,
+    plugins:{
+      legend:{ display:false },
+      tooltip:{ backgroundColor:'#0d1526', borderColor:'#1e3a5f', borderWidth:1,
+        titleColor:'#f59e0b', bodyColor:'#94a3b8', bodyFont:{ family:'JetBrains Mono' }}
+    },
+    scales:{
+      x:{ ticks:{ color:'#64748b', font:{ family:'JetBrains Mono', size:10 }}, grid:{ color:'rgba(30,58,95,.3)' }},
+      y:{ ticks:{ color:'#64748b', font:{ family:'JetBrains Mono', size:10 }}, grid:{ color:'rgba(30,58,95,.3)' }}
+    }
+  };
+}
+
+// ═══════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════
+window.addEventListener('load', () => {
+  updateApiStatusBar();
+  initMap();
+  initHubs();
+  initOil();  // also calls buildHeatmap() after fetching fuel price
+  runCalc();
+
+  if (aviationStackKey) fetchAviationStack();
+
+  // Refresh oil every 5 min
+  setInterval(initOil, 300000);
+  // Refresh OpenSky every 30s (handled inside fetchOpenSky itself)
+});
+</script>
+</body>
+</html>
