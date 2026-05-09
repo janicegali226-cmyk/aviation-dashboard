@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    // 1. 连接本地 MySQL 数据库
     const connection = await mysql.createConnection({
       host: process.env.DB_HOST,
       port: process.env.DB_PORT,

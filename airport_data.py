@@ -6,37 +6,6 @@ from datetime import datetime
 import mysql.connector
 
 # ==========================================
-# 🛡️ 熔断器配置 (Circuit Breaker Config)
-# ==========================================
-LOCK_FILE = "aviation_api_breaker.lock"
-LOCK_DURATION_HOURS = 24  # 一旦触发，死锁 24 小时禁止调用
-
-def check_circuit_breaker():
-    """每次发起 API 请求前，先检查系统是否处于熔断状态"""
-    if os.path.exists(LOCK_FILE):
-        file_mtime = os.path.getmtime(LOCK_FILE)
-        # 判断锁文件是否在设定的有效死锁期内
-        if (time.time() - file_mtime) < (LOCK_DURATION_HOURS * 3600):
-            print(f"[{datetime.now()}] 🛑 熔断器处于 [开启] 状态！")
-            print(f"为了保护账号，程序已主动拦截本次请求。请等待 24 小时，或手动删除 {LOCK_FILE}。")
-            # 极其关键：用 sys.exit(0) 代表“正常安全退出”，千万不能报错抛出异常，
-            # 否则会被外层的 PM2 误判为意外崩溃而疯狂重启！
-            sys.exit(0) 
-        else:
-            # 超过 24 小时，锁过期了，系统自动摘除警报
-            os.remove(LOCK_FILE)
-            print(f"[{datetime.now()}] 🟢 熔断时间已过，自动解除警报，恢复 API 调用。")
-
-def trigger_circuit_breaker(reason):
-    """遭遇危机，立刻拉下电闸（生成物理锁文件）"""
-    with open(LOCK_FILE, "w") as f:
-        f.write(f"Tripped at {datetime.now()} Reason: {reason}")
-    print(f"\n[{datetime.now()}] 🚨 致命警告：触发系统熔断！")
-    print(f"原因: {reason}")
-    print("电闸已拉下，后续所有请求将被直接静默拦截。")
-# ==========================================
-
-# ==========================================
 # 1. 基础配置
 # ==========================================
 API_KEY = "3b04224edf75f448be71bc143553bd3e"
@@ -46,10 +15,13 @@ AIRPORTS = [
 ]
 
 DB_CONFIG = {
-    "host": "localhost",
-    "user": "root",
-    "password": "ljn200326", 
-    "database": "aviation_dashboard"
+    "host": os.getenv("DB_HOST"),
+    "port": int(os.getenv("DB_PORT", 4000)),  # 明确指向 TiDB 的 4000 端口
+    "user": os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
+    "database": os.getenv("DB_NAME"),
+    "ssl_verify_cert": True,                  # 开启 SSL 证书验证
+    "ssl_verify_identity": True               # 开启 SSL 身份验证 (TiDB 必须要求)
 }
 
 # ==========================================
@@ -117,9 +89,6 @@ def fetch_and_calculate(airport_code):
 # 3. 主程序与安全锁
 # ==========================================
 if __name__ == "__main__":
-    # 每次开工前，先检查电闸有没有被拉下！
-    check_circuit_breaker() 
-
     results = []
     for apt in AIRPORTS:
         print(f"正在分析 {apt}...")

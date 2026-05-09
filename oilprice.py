@@ -5,13 +5,17 @@ from datetime import datetime
 import yfinance as yf
 from apscheduler.schedulers.blocking import BlockingScheduler
 import pandas as pd
+import os
 
 # 数据库配置
 DB_CONFIG = {
-    "host": "localhost",
-    "user": "root",
-    "password": "ljn200326", # 你的密码
-    "database": "aviation_dashboard"
+    "host": os.getenv("DB_HOST"),
+    "port": int(os.getenv("DB_PORT", 4000)),  # 明确指向 TiDB 的 4000 端口
+    "user": os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
+    "database": os.getenv("DB_NAME"),
+    "ssl_verify_cert": True,                  # 开启 SSL 证书验证
+    "ssl_verify_identity": True               # 开启 SSL 身份验证 (TiDB 必须要求)
 }
 
 # 获取战前（2026.02）油价数据

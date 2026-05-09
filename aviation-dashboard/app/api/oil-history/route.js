@@ -4,10 +4,14 @@ import { NextResponse } from 'next/server';
 export async function GET() {
   try {
     const connection = await mysql.createConnection({
-      host: 'localhost',
-      user: 'root',
-      password: 'ljn200326', 
-      database: 'aviation_dashboard',
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      ssl: {
+        rejectUnauthorized: false // TiDB 必须要求开启 SSL
+      }
     });
 
     // 提取数据并按日期升序排列（画折线图必须是从早到晚）

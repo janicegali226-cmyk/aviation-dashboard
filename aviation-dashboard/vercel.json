@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron_opensky",
+      "schedule": "0,30 * * * *" 
+    },
+    {
+      "path": "/api/cron_airport",
+      "schedule": "0 */4 * * *" 
+    },
+    {
+      "path": "/api/cron_oilprice",
+      "schedule": "0 0 * * *" 
+    }
+  ]
+}

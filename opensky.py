@@ -3,13 +3,17 @@ import mysql.connector
 import time
 from datetime import datetime
 from requests.auth import HTTPBasicAuth
+import os
 
 # 1. 配置数据库连接
 DB_CONFIG = {
-    "host": "localhost",
-    "user": "root",
-    "password": "ljn200326",
-    "database": "aviation_dashboard"
+    "host": os.getenv("DB_HOST"),
+    "port": int(os.getenv("DB_PORT", 4000)),  # 明确指向 TiDB 的 4000 端口
+    "user": os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
+    "database": os.getenv("DB_NAME"),
+    "ssl_verify_cert": True,                  # 开启 SSL 证书验证
+    "ssl_verify_identity": True               # 开启 SSL 身份验证 (TiDB 必须要求)
 }
 
 # 2. 配置 OpenSky API
@@ -92,7 +96,5 @@ def fetch_and_store_flights():
 # 3. 设定主程序：每小时自动运行 1 次
 if __name__ == "__main__":
     print(f"[{datetime.now()}] 实时航班直连抓取服务已启动...")
-    while True:
-        fetch_and_store_flights()
-        print(f"[{datetime.now()}] 任务完成，进入休眠，预计半小时后进行下一次抓取...")
-        time.sleep(1800)
+    fetch_and_store_flights()
+    print(f"[{datetime.now()}] 任务完成！")

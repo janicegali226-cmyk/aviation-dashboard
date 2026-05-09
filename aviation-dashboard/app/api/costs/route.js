@@ -3,12 +3,16 @@ import { NextResponse } from 'next/server';
 import mysql from 'mysql2/promise';
 
 // 数据库配置（与你的 cost_database.py 保持一致）
-const dbConfig = {
-  host: "localhost",
-  user: "root",
-  password: "ljn200326",
-  database: "aviation_dashboard"
-};
+const connection = await mysql.createConnection({
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  ssl: {
+    rejectUnauthorized: false // TiDB 必须要求开启 SSL
+  }
+});
 
 // 辅助函数：根据百分比计算状态（用于前端颜色显示）
 const getStatus = (pct) => {

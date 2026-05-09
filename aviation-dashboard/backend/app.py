@@ -9,13 +9,16 @@ import json
 from datetime import datetime, timedelta
 import pymongo
 import mysql.connector
+import os
 
 app = Flask(__name__)
 
 # 连接 MongoDB
-client = pymongo.MongoClient("mongodb://localhost:27017/")
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/") # 本地测试时有个默认后备
+client = pymongo.MongoClient(MONGO_URI)
 db = client["flight_database"]
 collection = db["realtime_flights"]
+collection_history = db["flight_history_cache"]
 
 def scrape_flightaware(flight_ident):
     """核心爬虫函数：根据传入的航班号动态抓取"""

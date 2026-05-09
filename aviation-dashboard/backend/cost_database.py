@@ -7,15 +7,19 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 import re
 from app import fetch_flight_data_with_cache # 从你的 app.py 文件中导入爬虫函数
 import math
+import os
 
 # ==========================================
 # 1. 数据库配置与物理距离
 # ==========================================
 DB_CONFIG = {
-    "host": "localhost",
-    "user": "root",
-    "password": "ljn200326",
-    "database": "aviation_dashboard"
+    "host": os.getenv("DB_HOST"),
+    "port": int(os.getenv("DB_PORT", 4000)),  # 明确指向 TiDB 的 4000 端口
+    "user": os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
+    "database": os.getenv("DB_NAME"),
+    "ssl_verify_cert": True,                  # 开启 SSL 证书验证
+    "ssl_verify_identity": True               # 开启 SSL 身份验证 (TiDB 必须要求)
 }
 
 # 计算8条航线的物理距离
@@ -293,13 +297,3 @@ def calculate_matrix_data():
     finally:
         cursor.close()
         db.close()
-
-if __name__ == "__main__":
-    calculate_matrix_data()
-    
-    scheduler = BlockingScheduler()
-    scheduler.add_job(calculate_matrix_data, 'interval', hours=2)
-    try:
-        scheduler.start()
-    except (KeyboardInterrupt, SystemExit):
-        print("⏹️ 服务已停止。")
