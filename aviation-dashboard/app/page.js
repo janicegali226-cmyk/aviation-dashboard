@@ -1,5 +1,6 @@
 "use client";
 
+// Force Vercel to rebuild and recognize Python APIs
 import { useState, useEffect } from 'react';
 import nextDynamic from 'next/dynamic';
 import HubMonitor from '@/components/HubMonitor';
