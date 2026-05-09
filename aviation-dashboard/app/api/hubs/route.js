@@ -5,10 +5,14 @@ export async function GET() {
   try {
     // 1. 连接本地 MySQL 数据库
     const connection = await mysql.createConnection({
-      host: 'localhost',
-      user: 'root',
-      password: 'ljn200326', // ⚠️ 注意：这里一定要换成你真实的 MySQL 密码！
-      database: 'aviation_dashboard',
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      ssl: {
+        rejectUnauthorized: false // TiDB 必须要求开启 SSL
+      }
     });
 
     // 2. 执行查询，获取最新抓取的 8 个机场数据

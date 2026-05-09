@@ -4,11 +4,15 @@ import { NextResponse } from 'next/server';
 export async function GET() {
   try {
     const connection = await mysql.createConnection({
-      host: 'localhost',
-      user: 'root',
-      password: 'ljn200326', // 你的数据库密码
-      database: 'aviation_dashboard',
-    });
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      ssl: {
+        rejectUnauthorized: false // TiDB 必须要求开启 SSL
+      }
+    });;
 
     // 核心修改：将时间窗口从 24 HOUR 极大地缩小到 35 MINUTE
     // 逻辑：找出过去 35 分钟内更新过位置的飞机（即当前正在活跃飞行的），并提取它们的最新坐标

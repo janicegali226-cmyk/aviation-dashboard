@@ -1,0 +1,11 @@
+HOST:gateway01.ap-southeast-1.prod.alicloud.tidbcloud.com
+
+PORT:4000
+
+USERNAME:4RpFZhR5qVfLiMw.root
+
+PASSWORD:v3PFWNzutoKkWCTZ
+
+DATABASE:sys
+
+CA:<CA_PATH>
