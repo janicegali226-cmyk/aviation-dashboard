@@ -7,13 +7,10 @@ import os
 
 # 1. 配置数据库连接
 DB_CONFIG = {
-    "host": os.getenv("DB_HOST"),
-    "port": int(os.getenv("DB_PORT", 4000)),  # 明确指向 TiDB 的 4000 端口
-    "user": os.getenv("DB_USER"),
-    "password": os.getenv("DB_PASSWORD"),
-    "database": os.getenv("DB_NAME"),
-    "ssl_verify_cert": True,                  # 开启 SSL 证书验证
-    "ssl_verify_identity": True               # 开启 SSL 身份验证 (TiDB 必须要求)
+    "host": "localhost",       # 如果数据库在 AWS RDS 或其他云上，替换为对应的 Endpoint
+    "user": "root",
+    "password": "ljn200326",
+    "database": "aviation_dashboard"
 }
 
 # 2. 配置 OpenSky API
