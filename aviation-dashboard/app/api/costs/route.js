@@ -2,8 +2,8 @@
 import { NextResponse } from 'next/server';
 import mysql from 'mysql2/promise';
 
-// 数据库配置（与你的 cost_database.py 保持一致）
-const connection = await mysql.createConnection({
+// 1. 定义数据库配置对象（只定义，不要在这里 await 建立连接）
+const dbConfig = {
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
   user: process.env.DB_USER,
@@ -12,7 +12,7 @@ const connection = await mysql.createConnection({
   ssl: {
     rejectUnauthorized: false // TiDB 必须要求开启 SSL
   }
-});
+};
 
 // 辅助函数：根据百分比计算状态（用于前端颜色显示）
 const getStatus = (pct) => {
@@ -23,14 +23,16 @@ const getStatus = (pct) => {
 };
 
 export async function GET() {
-  const connection = await mysql.createConnection(dbConfig);
+  let connection;
   try {
+    // 2. 只有在前端发起请求时，才临时建立数据库连接
+    connection = await mysql.createConnection(dbConfig);
+    
     const [rows] = await connection.execute(
       "SELECT airline, route, ident, aircraft, fluctuation_pct, extra_fuel, extra_crew, war_risk, extra_stop, delay_comp FROM cost_matrix_data"
     );
 
     const routeMap = {};
-    // ✨ 新增统计变量
     let maxSurge = { ident: 'N/A', increase: -999 };
     const routeStats = {}; 
 
@@ -49,7 +51,6 @@ export async function GET() {
       routeStats[route].total += fluctuation_pct;
       routeStats[route].count += 1;
 
-      // 原有的聚合逻辑保持不变...
       if (!routeMap[route]) {
         routeMap[route] = { route, airlines: [] };
       }
@@ -72,8 +73,7 @@ export async function GET() {
       }
     });
 
-    // ✨ 返回格式改变：包含 stats 和 data
-    return Response.json({
+    return NextResponse.json({
       stats: {
         maxSurge,
         criticalRoute
@@ -82,8 +82,12 @@ export async function GET() {
     });
 
   } catch (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error("Database connection/query error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   } finally {
-    await connection.end();
+    // 3. 极其关键：用完立刻关闭连接，释放资源
+    if (connection) {
+      await connection.end();
+    }
   }
 }
