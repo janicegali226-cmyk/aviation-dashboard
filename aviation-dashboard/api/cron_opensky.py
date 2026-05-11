@@ -4,7 +4,6 @@ import requests
 import mysql.connector
 from datetime import datetime
 import os
-from requests.auth import HTTPBasicAuth
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -16,39 +15,47 @@ class handler(BaseHTTPRequestHandler):
                 user=os.getenv("DB_USER"),
                 password=os.getenv("DB_PASSWORD"),
                 database=os.getenv("DB_NAME"),
-                ssl_verify_cert=False,
+                ssl_verify_cert=False,    # 保持轻量级忽略本地证书
                 ssl_verify_identity=False
             )
             cursor = db.cursor()
             
-            # 2. OpenSky API 配置
-            OPENSKY_USER = os.getenv("OPENSKY_USER", "janice")
-            OPENSKY_PASS = os.getenv("OPENSKY_PASS", "Ljn200326&gali")
-            TARGET_URL = "https://opensky-network.org/api/states/all?lamin=10.0&lomin=35.0&lamax=45.0&lomax=80.0"
-            auth = HTTPBasicAuth(OPENSKY_USER, OPENSKY_PASS) if OPENSKY_USER else None
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-            }
+            # 2. AirLabs API 配置
+            AIRLABS_API_KEY = os.getenv("AIRLABS_API_KEY")
+            if not AIRLABS_API_KEY:
+                raise ValueError("Missing AIRLABS_API_KEY in environment variables.")
+                
+            # bbox 边界框: south_lat, west_lng, north_lat, east_lng (对应你之前的中东区域)
+            TARGET_URL = f"https://airlabs.co/api/v9/flights?bbox=10.0,35.0,45.0,80.0&api_key={AIRLABS_API_KEY}"
             
-            # 3. 抓取数据
-            # 👇 修改这一行，加上 headers=headers，改 timeout=10 👇
-            response = requests.get(TARGET_URL, auth=auth, headers=headers, timeout=10)
+            # 3. 抓取数据 (设置强制超时保护，Vercel 友好)
+            response = requests.get(TARGET_URL, timeout=8)
             inserted_count = 0
             
             if response.status_code == 200:
-                states = response.json().get("states")
-                if states:
+                data = response.json()
+                flights = data.get("response", [])
+                
+                if flights:
                     sql = """
                         INSERT INTO flight_data 
                         (icao24, callsign, latitude, longitude, velocity, true_track) 
                         VALUES (%s, %s, %s, %s, %s, %s)
                     """
                     values = []
-                    for f in states:
-                        if f[1] and f[5] and f[6]:
-                            callsign = f[1].strip()
-                            if callsign:
-                                values.append((f[0], callsign, f[6], f[5], f[9], f[10]))
+                    for f in flights:
+                        hex_code = f.get('hex')
+                        callsign = f.get('flight_icao') or f.get('reg_number')
+                        lat = f.get('lat')
+                        lng = f.get('lng')
+                        speed_kmh = f.get('speed', 0)
+                        dir_track = f.get('dir', 0)
+                        
+                        # 确保关键数据存在
+                        if hex_code and callsign and lat and lng:
+                            # 自动将 AirLabs 的 km/h 换算为 m/s，无缝对接你的前端逻辑
+                            velocity_ms = round(speed_kmh * (1000 / 3600), 2)
+                            values.append((hex_code, callsign.strip(), lat, lng, velocity_ms, dir_track))
                     
                     if values:
                         cursor.executemany(sql, values)
@@ -64,7 +71,7 @@ class handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps({
                 "status": "success", 
-                "message": f"Fetched and stored {inserted_count} flights."
+                "message": f"Fetched and stored {inserted_count} flights via AirLabs."
             }).encode('utf-8'))
             
         except Exception as e:
