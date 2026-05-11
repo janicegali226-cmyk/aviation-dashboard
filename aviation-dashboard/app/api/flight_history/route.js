@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
 
 export async function GET(request) {
-  const { searchParams } = new URL(request.url);
+  // 1. 提取 searchParams，并同时提取当前的动态域名 origin
+  const { searchParams, origin } = new URL(request.url);
   const ident = searchParams.get('ident');
 
   if (!ident) return NextResponse.json({ error: 'Missing callsign' }, { status: 400 });
 
   try {
-    const response = await fetch(`http://127.0.0.1:5000/api/history/${ident}`);
+    // 2. 🚨 核心修复：用 origin 替换掉 127.0.0.1:5000
+    const response = await fetch(`${origin}/api/history/${ident}`);
     
-    // 🌟 核心修改：如果 Python 返回错误，把具体的错误原因打印在终端里！
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`❌ Python 接口报错 (状态码 ${response.status}):`, errorText);

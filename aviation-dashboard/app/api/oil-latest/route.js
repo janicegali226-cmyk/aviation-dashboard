@@ -1,25 +1,28 @@
 import mysql from 'mysql2/promise';
 import { NextResponse } from 'next/server';
 
-export async function GET() {
-  try {
-    const connection = await mysql.createConnection({
-      host: process.env.DB_HOST,
-      port: process.env.DB_PORT,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-      ssl: {
-        rejectUnauthorized: false // TiDB 必须要求开启 SSL
-      }
-    });
+// 1. 提取配置项，保持代码整洁
+const dbConfig = {
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  ssl: {
+    rejectUnauthorized: false // TiDB 必须要求开启 SSL
+  }
+};
 
-    // 💥 提取最新两天的数据，用来计算 vs prev close 的涨跌百分比
+export async function GET() {
+  let connection;
+  try {
+    // 2. 临时建立连接
+    connection = await mysql.createConnection(dbConfig);
+
+    // 提取最新两天的数据，用来计算 vs prev close 的涨跌百分比
     const [rows] = await connection.execute(
       'SELECT record_date, wti_price, brent_price, jet_fuel_price FROM oil_price_history ORDER BY record_date DESC LIMIT 2'
     );
-
-    await connection.end();
 
     if (rows.length > 0) {
       const current = rows[0];
@@ -48,9 +51,9 @@ export async function GET() {
       ];
 
       return NextResponse.json({
-        price: current.jet_fuel_price, // 依然保留这个单值，为了给 Cost Calculator 供电
+        price: current.jet_fuel_price, // 保留单值给 Cost Calculator 供电
         date: current.record_date,
-        cards: cardsData               // 💥 增加 cards 数组，给 page.js 供电
+        cards: cardsData               // cards 数组给 page.js 供电
       });
     } else {
       return NextResponse.json({ error: 'No data found in history' }, { status: 404 });
@@ -58,5 +61,10 @@ export async function GET() {
   } catch (error) {
     console.error('数据库请求失败:', error);
     return NextResponse.json({ error: 'Failed to fetch latest oil prices' }, { status: 500 });
+  } finally {
+    // 3. 🚨 核心保命机制：无论代码是否报错，强制执行关闭连接！
+    if (connection) {
+      await connection.end();
+    }
   }
 }
