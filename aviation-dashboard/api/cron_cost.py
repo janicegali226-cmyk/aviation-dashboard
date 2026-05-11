@@ -6,9 +6,8 @@ from datetime import datetime
 import random
 import math
 import os
-
-# 🚨 重点注意：保留原来的引入逻辑
-from index import fetch_flight_data_with_cache 
+import requests
+import re
 
 # ==========================================
 # 1. 数据库配置与物理距离
@@ -53,11 +52,10 @@ def calculate_great_circle_distance(route):
         c = 2 * math.asin(math.sqrt(a))
         return round(R * c, 2)
     except Exception as e:
-        print(f"⚠️ 距离计算失败 {route}: {e}")
         return None
 
 # ==========================================
-# 2. 数据获取与爬虫接口
+# 2. 内嵌极速防超时爬虫 & 数据获取
 # ==========================================
 def get_oil_prices(cursor):
     try:
@@ -73,16 +71,36 @@ def get_oil_prices(cursor):
     except Exception:
         return 159.36, 115.40
 
+def fetch_flightaware_lightweight(ident):
+    """超轻量替代方案：原生requests+正则，强制1.5秒超时防崩溃"""
+    url = f"https://www.flightaware.com/live/flight/{ident}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36"
+    }
+    try:
+        # 🚨 核心保命机制：最多只等1.5秒，拿不到直接跳过，防止Vercel被10秒强杀！
+        res = requests.get(url, headers=headers, timeout=1.5)
+        if res.status_code == 200:
+            match = re.search(r'trackpollBootstrap\s*=\s*({.+?});\s*</script>', res.text, re.DOTALL)
+            if match:
+                raw_data = json.loads(match.group(1))
+                flights = raw_data.get("flights", {})
+                if flights:
+                    flight_id = list(flights.keys())[0]
+                    flight = flights[flight_id]
+                    return flight.get("flightPlan", {}).get("ete")
+    except Exception:
+        pass
+    return None
+
 def fetch_realtime_flight_data(ident, route, baseline_air_time):
     actual_air_time = baseline_air_time 
     try:
-        scraped_data = fetch_flight_data_with_cache(ident)
-        if scraped_data and scraped_data.get('duration'):
-            duration_seconds = scraped_data['duration']
-            if isinstance(duration_seconds, (int, float)) and duration_seconds > 0:
-                actual_air_time = duration_seconds / 3600.0
-    except Exception as e:
-        print(f"❌ 爬虫执行错误: {e}")
+        duration_seconds = fetch_flightaware_lightweight(ident)
+        if duration_seconds and isinstance(duration_seconds, (int, float)) and duration_seconds > 0:
+            actual_air_time = duration_seconds / 3600.0
+    except Exception:
+        pass
     
     war_risk = 5000 if 'DXB' in route or 'DOH' in route else 0
     long_haul_routes = ['SIN-LHR', 'MEL-DXB', 'LHR-DXB', 'DOH-SIN']
@@ -102,11 +120,9 @@ def calculate_matrix_data():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     csv_path = os.path.join(current_dir, 'routes1.csv')
     
-    # 用 Python 内置 csv 模块完美平替 pandas 的读取和去重
     unique_flights = {}
     with open(csv_path, mode='r', encoding='utf-8-sig') as f:
         reader = csv.DictReader(f)
-        # 去除列名前后的空格
         reader.fieldnames = [name.strip() for name in reader.fieldnames]
         for row in reader:
             ident = row.get('ident')
@@ -127,7 +143,6 @@ def calculate_matrix_data():
     taxi_time_constant = 0.6 
     crew_hourly_wage = 180.0 
 
-    # 直接遍历原生字典，无需 iterrows
     for row in unique_flights.values():
         route = row['route']
         distance_in_theory = calculate_great_circle_distance(route)
