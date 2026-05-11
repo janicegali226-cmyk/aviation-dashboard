@@ -26,9 +26,13 @@ class handler(BaseHTTPRequestHandler):
             OPENSKY_PASS = os.getenv("OPENSKY_PASS", "Ljn200326&gali")
             TARGET_URL = "https://opensky-network.org/api/states/all?lamin=10.0&lomin=35.0&lamax=45.0&lomax=80.0"
             auth = HTTPBasicAuth(OPENSKY_USER, OPENSKY_PASS) if OPENSKY_USER else None
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+            }
             
             # 3. 抓取数据
-            response = requests.get(TARGET_URL, auth=auth, timeout=30)
+            # 👇 修改这一行，加上 headers=headers，改 timeout=10 👇
+            response = requests.get(TARGET_URL, auth=auth, headers=headers, timeout=10)
             inserted_count = 0
             
             if response.status_code == 200:
