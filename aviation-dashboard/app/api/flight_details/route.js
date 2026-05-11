@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   // 1. 提取 searchParams 和 origin（origin 就是动态的当前域名，无论是 localhost 还是 Vercel 域名都能自适应）

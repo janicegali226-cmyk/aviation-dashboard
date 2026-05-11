@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   // 1. 提取 searchParams，并同时提取当前的动态域名 origin

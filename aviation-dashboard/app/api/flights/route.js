@@ -1,6 +1,9 @@
 import mysql from 'mysql2/promise';
 import { NextResponse } from 'next/server';
 
+// 🚨 核心破解法术：强制 Next.js 每次都动态请求，绝对不准缓存！
+export const dynamic = 'force-dynamic';
+
 // 1. 将配置项提取出来，保持整洁
 const dbConfig = {
   host: process.env.DB_HOST,

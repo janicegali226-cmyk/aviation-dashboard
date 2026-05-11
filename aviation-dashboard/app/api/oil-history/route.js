@@ -1,5 +1,6 @@
 import mysql from 'mysql2/promise';
 import { NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 
 // 1. 将配置项提取到外面
 const dbConfig = {

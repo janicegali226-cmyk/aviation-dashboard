@@ -1,6 +1,7 @@
 // app/api/costs/route.js
 import { NextResponse } from 'next/server';
 import mysql from 'mysql2/promise';
+export const dynamic = 'force-dynamic';
 
 // 1. 定义数据库配置对象（只定义，不要在这里 await 建立连接）
 const dbConfig = {
