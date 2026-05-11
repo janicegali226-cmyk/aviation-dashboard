@@ -37,22 +37,33 @@ export default function LiveMap({ onFlightUpdate, onFlightSelect, selectedFlight
       fetch('/api/flights')
         .then(res => res.json())
         .then(data => {
-          // 过滤掉超过 60 分钟的数据，确保地图上只有 1 小时内的航班
+          // 增加一层保护：如果后端返回报错，别让前端崩溃
+          if (!Array.isArray(data)) {
+            console.error("API returned non-array data:", data);
+            return;
+          }
+
           const now = Date.now();
           const recentFlights = data.filter(flight => {
             if (!flight.captured_at) return true; 
-            const flightTime = new Date(flight.captured_at).getTime();
+            
+            // 🚨 核心修复：强行补全 UTC 时区的 'Z' 标识！
+            let timeStr = flight.captured_at;
+            // 如果字符串没有 Z，说明是纯净的数据库时间，我们强制加上 T 和 Z 把它转为绝对标准时间
+            if (typeof timeStr === 'string' && !timeStr.endsWith('Z')) {
+              timeStr = timeStr.replace(' ', 'T') + 'Z';
+            }
+            flight.captured_at = timeStr; // 写回对象，让后面圆点变灰的逻辑也拿到正确时间
+
+            const flightTime = new Date(timeStr).getTime();
+            // 过滤掉超过 60 分钟的数据
             return (now - flightTime) <= 60 * 60 * 1000;
           });
           
           setFlights(recentFlights);
           if (onFlightUpdate) onFlightUpdate(recentFlights.length);
-        }).catch(err => console.error(err));
+        }).catch(err => console.error("Fetch error:", err));
     };
-    fetchFlights();
-    // 保持 30 分钟轮询
-    const interval = setInterval(fetchFlights, 30 * 60 * 1000); 
-    return () => clearInterval(interval);
   }, [onFlightUpdate]);
 
   const noFlyZone = [ [27.5, 55.0], [26.5, 56.5], [25.5, 56.0], [26.0, 54.5], [27.0, 54.0] ];
