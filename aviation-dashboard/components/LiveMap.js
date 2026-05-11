@@ -34,7 +34,8 @@ export default function LiveMap({ onFlightUpdate, onFlightSelect, selectedFlight
 
   useEffect(() => {
     const fetchFlights = () => {
-      fetch('/api/flights')
+      // 🚨 终极缓存杀手：强制加上动态时间戳，并硬性指令不准读取缓存！
+      fetch(`/api/flights?_t=${Date.now()}`, { cache: 'no-store' })
         .then(res => res.json())
         .then(data => {
           // 增加一层保护：如果后端返回报错，别让前端崩溃
@@ -47,13 +48,12 @@ export default function LiveMap({ onFlightUpdate, onFlightSelect, selectedFlight
           const recentFlights = data.filter(flight => {
             if (!flight.captured_at) return true; 
             
-            // 🚨 核心修复：强行补全 UTC 时区的 'Z' 标识！
+            // 强行补全 UTC 时区的 'Z' 标识！
             let timeStr = flight.captured_at;
-            // 如果字符串没有 Z，说明是纯净的数据库时间，我们强制加上 T 和 Z 把它转为绝对标准时间
             if (typeof timeStr === 'string' && !timeStr.endsWith('Z')) {
               timeStr = timeStr.replace(' ', 'T') + 'Z';
             }
-            flight.captured_at = timeStr; // 写回对象，让后面圆点变灰的逻辑也拿到正确时间
+            flight.captured_at = timeStr; 
 
             const flightTime = new Date(timeStr).getTime();
             // 过滤掉超过 60 分钟的数据
