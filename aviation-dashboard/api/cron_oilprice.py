@@ -2,8 +2,33 @@ from http.server import BaseHTTPRequestHandler
 import json
 import mysql.connector
 import os
-import yfinance as yf
-import pandas as pd
+import requests
+from datetime import datetime
+
+# 模拟获取 Yahoo Finance 数据的轻量级函数
+def fetch_yahoo_finance(ticker):
+    url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}?range=1mo&interval=1d"
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    }
+    try:
+        res = requests.get(url, headers=headers, timeout=10)
+        data = res.json()
+        result = {}
+        if 'chart' in data and 'result' in data['chart'] and data['chart']['result']:
+            result_data = data['chart']['result'][0]
+            timestamps = result_data.get('timestamp', [])
+            closes = result_data['indicators']['quote'][0].get('close', [])
+            
+            for t, c in zip(timestamps, closes):
+                if c is not None:
+                    # 将时间戳转换为 YYYY-MM-DD 格式
+                    date_str = datetime.fromtimestamp(t).strftime('%Y-%m-%d')
+                    result[date_str] = c
+        return result
+    except Exception as e:
+        print(f"Error fetching {ticker}: {e}")
+        return {}
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -19,21 +44,22 @@ class handler(BaseHTTPRequestHandler):
             )
             cursor = db.cursor()
             
-            # 获取最近 30 天油价
-            wti = yf.Ticker("CL=F").history(period="1mo")['Close']
-            brent = yf.Ticker("BZ=F").history(period="1mo")['Close']
-            jet = yf.Ticker("HO=F").history(period="1mo")['Close'] * 42 
+            # 获取最近 30 天油价数据 (原生字典)
+            wti_data = fetch_yahoo_finance("CL=F")
+            brent_data = fetch_yahoo_finance("BZ=F")
+            jet_data = fetch_yahoo_finance("HO=F")
 
-            df = pd.DataFrame({
-                'wti_price': wti,
-                'brent_price': brent,
-                'jet_fuel_price': jet
-            }).dropna()
-
+            # 提取同时存在三种油价的公共日期 (等同于 pandas 的 dropna 逻辑)
+            common_dates = set(wti_data.keys()) & set(brent_data.keys()) & set(jet_data.keys())
+            
             records = []
-            for index, row in df.iterrows():
-                date_str = index.strftime('%Y-%m-%d')
-                records.append((date_str, round(row['wti_price'], 2), round(row['brent_price'], 2), round(row['jet_fuel_price'], 2)))
+            # 按日期排序整理数据
+            for date_str in sorted(common_dates):
+                wti = wti_data[date_str]
+                brent = brent_data[date_str]
+                jet = jet_data[date_str] * 42  # 航空燃油转换
+                
+                records.append((date_str, round(wti, 2), round(brent, 2), round(jet, 2)))
                 
             if records:
                 sql = """

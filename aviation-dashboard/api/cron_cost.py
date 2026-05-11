@@ -1,14 +1,13 @@
 from http.server import BaseHTTPRequestHandler
 import json
-import pandas as pd
+import csv
 import mysql.connector
 from datetime import datetime
 import random
 import math
 import os
 
-# 🚨 重点注意：这里假设你已经按照建议，将 app.py 移到了 api 目录并改名为 index.py
-# 如果你还没改名，请将 'index' 替换为 'app'
+# 🚨 重点注意：保留原来的引入逻辑
 from index import fetch_flight_data_with_cache 
 
 # ==========================================
@@ -85,8 +84,6 @@ def fetch_realtime_flight_data(ident, route, baseline_air_time):
     except Exception as e:
         print(f"❌ 爬虫执行错误: {e}")
     
-    # ⚠️ 致命问题 3 已修复：彻底删除了 time.sleep 避免触发 Vercel 10秒超时
-    
     war_risk = 5000 if 'DXB' in route or 'DOH' in route else 0
     long_haul_routes = ['SIN-LHR', 'MEL-DXB', 'LHR-DXB', 'DOH-SIN']
     extra_stop = random.choices([0, 1000], weights=[70, 30])[0] if route in long_haul_routes else 0
@@ -102,13 +99,19 @@ def calculate_matrix_data():
 
     current_oil_price, baseline_oil_price = get_oil_prices(cursor)
 
-    # ⚠️ 致命问题 2 已修复：使用 os 动态获取绝对路径读取 CSV
     current_dir = os.path.dirname(os.path.abspath(__file__))
     csv_path = os.path.join(current_dir, 'routes1.csv')
     
-    df = pd.read_csv(csv_path)
-    df.columns = df.columns.str.strip()
-    unique_flights = df.drop_duplicates(subset=['ident'])
+    # 用 Python 内置 csv 模块完美平替 pandas 的读取和去重
+    unique_flights = {}
+    with open(csv_path, mode='r', encoding='utf-8-sig') as f:
+        reader = csv.DictReader(f)
+        # 去除列名前后的空格
+        reader.fieldnames = [name.strip() for name in reader.fieldnames]
+        for row in reader:
+            ident = row.get('ident')
+            if ident and ident not in unique_flights:
+                unique_flights[ident] = row
     
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS cost_matrix_data (
@@ -124,7 +127,8 @@ def calculate_matrix_data():
     taxi_time_constant = 0.6 
     crew_hourly_wage = 180.0 
 
-    for index, row in unique_flights.iterrows():
+    # 直接遍历原生字典，无需 iterrows
+    for row in unique_flights.values():
         route = row['route']
         distance_in_theory = calculate_great_circle_distance(route)
         distance = distance_in_theory * 1.06 if distance_in_theory else None
@@ -178,7 +182,7 @@ def calculate_matrix_data():
     return count
 
 # ==========================================
-# 4. ⚠️ 致命问题 1 已修复：包装为 Vercel 接口
+# 4. 包装为 Vercel 接口
 # ==========================================
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
