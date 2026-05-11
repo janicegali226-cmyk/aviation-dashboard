@@ -1,0 +1,36 @@
+export async function GET() {
+  try {
+    const connection = await mysql.createConnection({
+      host: 'localhost',
+      user: 'root',
+      password: 'ljn200326', // 你的数据库密码
+      database: 'aviation_dashboard',
+    });
+
+const connection = await mysql.createConnection({
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  ssl: {
+    rejectUnauthorized: false // TiDB 必须要求开启 SSL
+  }
+});
+
+DB_CONFIG = {
+    "host": "localhost",
+    "user": "root",
+    "password": "ljn200326", 
+    "database": "aviation_dashboard"
+}
+
+DB_CONFIG = {
+    "host": os.getenv("DB_HOST"),
+    "port": int(os.getenv("DB_PORT", 4000)),  # 明确指向 TiDB 的 4000 端口
+    "user": os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
+    "database": os.getenv("DB_NAME"),
+    "ssl_verify_cert": True,                  # 开启 SSL 证书验证
+    "ssl_verify_identity": True               # 开启 SSL 身份验证 (TiDB 必须要求)
+}

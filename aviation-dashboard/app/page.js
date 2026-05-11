@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react';
 import nextDynamic from 'next/dynamic';
 import HubMonitor from '@/components/HubMonitor';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Legend } from 'recharts';
-export const dynamic = 'force-dynamic';
 import CostMatrix from '@/components/CostMatrix';
 import CostCalculator from '@/components/CostCalculator';
 

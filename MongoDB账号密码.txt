@@ -1,0 +1,4 @@
+Username: janicegali226_db_user
+Password: nxTW8XD6RZbJaK0B
+
+mongodb+srv://janicegali226_db_user:nxTW8XD6RZbJaK0B@cluster0.aux4kg8.mongodb.net/
