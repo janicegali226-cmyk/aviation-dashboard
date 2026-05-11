@@ -1,8 +1,2 @@
 requests
 mysql-connector-python
-pandas
-yfinance
-pymongo
-beautifulsoup4
-curl_cffi
-Flask
