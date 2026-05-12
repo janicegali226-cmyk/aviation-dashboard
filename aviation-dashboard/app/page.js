@@ -25,15 +25,11 @@ const TABS = [
   { id: 'calc', num: '05', label: 'COST CALCULATOR' },
 ];
 
-// 辅助函数：格式化时间并标注时区
 const formatTime = (isoString) => {
   if (!isoString) return '--:--';
   const date = new Date(isoString);
   return date.toLocaleTimeString('en-US', { 
-    hour: '2-digit', 
-    minute: '2-digit', 
-    hour12: false,
-    timeZoneName: 'short' 
+    hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short' 
   });
 };
 
@@ -43,7 +39,6 @@ export default function MasterDashboard() {
   const [selectedFlight, setSelectedFlight] = useState(null);
   const [flightHistory, setFlightHistory] = useState(null);
 
-  // 拦截地图点击，发起 API 查询
   const handleFlightSelect = async (flightFromMap) => {
     if (!flightFromMap) {
       setSelectedFlight(null);
@@ -62,9 +57,10 @@ export default function MasterDashboard() {
     }
 
     try {
+      // 🚨 致命修复：严格恢复成你原本带下划线的文件夹名称！
       const [detailsRes, historyRes] = await Promise.all([
-        fetch(`/api/flight-details?ident=${callsign}`), // 统一使用你改好的 flight-details 接口
-        fetch(`/api/flight-history?ident=${callsign}`)  // 统一使用你改好的 flight-history 接口
+        fetch(`/api/flight_details?ident=${callsign}`), 
+        fetch(`/api/flight_history?ident=${callsign}`)  
       ]);
       
       if (detailsRes.ok) {
@@ -77,14 +73,10 @@ export default function MasterDashboard() {
 
       if (historyRes.ok) {
         const historyData = await historyRes.json();
-        setFlightHistory({ 
-          records: historyData.history_records || [], 
-          loading: false 
-        });
+        setFlightHistory({ records: historyData.history_records || [], loading: false });
       } else {
         setFlightHistory({ records: [], loading: false, error: true });
       }
-
     } catch (error) {
       console.error("API Query Error:", error);
       setSelectedFlight((prev) => ({ ...prev, loading: false, isError: true }));
@@ -94,8 +86,6 @@ export default function MasterDashboard() {
 
   return (
     <div className="min-h-screen bg-[#0a0f1c] flex flex-col font-sans selection:bg-sky-500/30">
-      
-      {/* 顶部导航栏 */}
       <nav className="border-b border-slate-800 bg-[#0a0f1c] px-6 md:px-12 pt-8">
         <div className="flex space-x-12 overflow-x-auto">
           {TABS.map((tab) => (
@@ -103,9 +93,7 @@ export default function MasterDashboard() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`pb-4 flex items-center space-x-3 text-sm font-bold tracking-widest whitespace-nowrap transition-colors duration-200 ${
-                activeTab === tab.id
-                  ? 'text-orange-500 border-b-2 border-orange-500' 
-                  : 'text-slate-500 hover:text-slate-300'          
+                activeTab === tab.id ? 'text-orange-500 border-b-2 border-orange-500' : 'text-slate-500 hover:text-slate-300'          
               }`}
             >
               <span className={`${activeTab === tab.id ? 'opacity-70' : 'opacity-40'} font-medium`}>{tab.num}</span>
@@ -115,10 +103,7 @@ export default function MasterDashboard() {
         </div>
       </nav>
 
-      {/* 下方内容展示区 */}
       <main className="flex-grow p-6 md:p-10 relative max-w-[1800px] mx-auto w-full">
-        
-        {/* ROUTE MAP 板块 */}
         {activeTab === 'map' && (
           <>
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[780px]">
@@ -185,7 +170,7 @@ export default function MasterDashboard() {
                           {selectedFlight.ident || selectedFlight.callsign}
                         </span>
                         <span className="text-slate-400 text-[9px] font-bold tracking-widest uppercase">
-                          {selectedFlight.aircraft_type || 'B789'}
+                          {selectedFlight.aircraft_type || 'N/A'}
                         </span>
                       </div>
                     </div>
@@ -239,17 +224,13 @@ export default function MasterDashboard() {
             </div>
           </div>
 
-          {(flightHistory && selectedFlight) && (
+          {(flightHistory && selectedFlight && !selectedFlight.loading && !flightHistory.loading) && (
             <div className="mt-6 bg-[#121a2f] border border-slate-800 rounded-xl p-6 shadow-2xl">
               <h3 className="text-orange-500 font-bold tracking-widest text-xs mb-4 uppercase">
                 Recent Flight History — {selectedFlight.ident || selectedFlight.callsign}
               </h3>
               
-              {flightHistory.loading ? (
-                <div className="h-32 flex items-center justify-center text-sky-500 text-xs font-bold tracking-widest animate-pulse uppercase">
-                  FETCHING ARCHIVE DATA...
-                </div>
-              ) : flightHistory.records?.length > 0 ? (
+              {flightHistory.records?.length > 0 ? (
                 <div className="overflow-x-auto custom-scrollbar">
                   <table className="w-full text-left border-collapse">
                     <thead>
@@ -286,7 +267,7 @@ export default function MasterDashboard() {
           </>
         )}
 
-        {/* 其他独立组件渲染区 */}
+        {/* 独立的业务组件 */}
         {activeTab === 'hub' && <HubMonitor />}
         {activeTab === 'oil' && <OilPrices />} 
         {activeTab === 'heat' && <CostMatrix />}
