@@ -56,15 +56,31 @@ export default function LiveMap({ onFlightUpdate, onFlightSelect, selectedFlight
             flight.captured_at = timeStr; 
 
             const flightTime = new Date(timeStr).getTime();
-            // 过滤掉超过 60 分钟的数据
+            // 过滤掉超过 24 小时的数据，配合 1 小时的云端抓取频率
             return (now - flightTime) <= 24 * 60 * 60 * 1000;
           });
           
           setFlights(recentFlights);
-          if (onFlightUpdate) onFlightUpdate(recentFlights.length);
+          
+          // 更新父组件统计数量
+          if (onFlightUpdate) {
+            onFlightUpdate(recentFlights.length);
+          }
         }).catch(err => console.error("Fetch error:", err));
     };
-  }, [onFlightUpdate]);
+
+    // 🚨 致命修复 1：定义完函数后，立刻调用执行一次！
+    fetchFlights();
+
+    // 🚨 进阶修复 2：设置一个定时器，每 3 分钟自动去后端拉取一次最新数据
+    const intervalId = setInterval(fetchFlights, 3 * 60 * 1000);
+
+    // 组件被卸载时，自动清理定时器，防止内存泄漏
+    return () => clearInterval(intervalId);
+    
+  // 🚨 致命修复 3：依赖数组保持为空 []，确保仅在组件首次挂载时执行，防止因为 onFlightUpdate 导致的无限死循环
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); 
 
   const noFlyZone = [ [27.5, 55.0], [26.5, 56.5], [25.5, 56.0], [26.0, 54.5], [27.0, 54.0] ];
   const AIRPORTS = { DXB: [55.3657, 25.2532], SIN: [103.9915, 1.3644], LHR: [-0.4543, 51.4700], BKK: [100.7501, 13.6900], HKG: [113.9185, 22.3080], KUL: [101.7099, 2.7456], BOM: [72.8656, 19.0896], DOH: [51.6080, 25.2731], DEL: [77.1000, 28.5562], MCT: [58.2844, 23.5933], TBZ: [46.2344, 38.1330], IKA: [51.1522, 35.4161], BAH: [50.6336, 26.2708], KWI: [47.9689, 29.2266] };
