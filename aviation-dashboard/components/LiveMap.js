@@ -57,7 +57,7 @@ export default function LiveMap({ onFlightUpdate, onFlightSelect, selectedFlight
 
             const flightTime = new Date(timeStr).getTime();
             // 过滤掉超过 60 分钟的数据
-            return (now - flightTime) <= 60 * 60 * 1000;
+            return (now - flightTime) <= 24 * 60 * 60 * 1000;
           });
           
           setFlights(recentFlights);
