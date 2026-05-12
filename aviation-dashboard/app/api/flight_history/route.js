@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server';
 
-// 强制动态请求，防止返回旧历史缓存
 export const dynamic = 'force-dynamic';
+
+// 核心组件：内置航空枢纽时区字典 (UTC 偏移量)
+// 用于将各地机场的起降时间精准转换为东八区 (UTC+8) 时间
+const TZ_OFFSETS = {
+  'SIN': 8, 'HKG': 8, 'KUL': 8, 'BKK': 7,
+  'BOM': 5.5, 'DEL': 5.5, 'DXB': 4, 'MCT': 4,
+  'DOH': 3, 'BAH': 3, 'KWI': 3, 'IKA': 3.5,
+  'TBZ': 3.5, 'LHR': 1 
+};
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -12,7 +20,6 @@ export async function GET(request) {
   }
 
   try {
-    // 1. 直接用 Next.js 伪装浏览器去请求 FlightAware 的历史页面
     const url = `https://www.flightaware.com/live/flight/${ident}/history`;
     const response = await fetch(url, {
       headers: {
@@ -27,7 +34,6 @@ export async function GET(request) {
 
     const html = await response.text();
 
-    // 2. 轻量级解析引擎：定位历史数据表格 (替代 Python 的 bs4 table.prettyTable)
     const tableMatch = html.match(/<table[^>]*class=["'][^"']*prettyTable[^"']*["'][^>]*>([\s\S]*?)<\/table>/i);
     if (!tableMatch) {
       return NextResponse.json({ error: 'No history data found on page' }, { status: 404 });
@@ -38,36 +44,91 @@ export async function GET(request) {
     const historyRecords = [];
     let matchRow;
 
-    // 辅助函数：去除 HTML 标签，提取纯文本
     const stripTags = (str) => str.replace(/<[^>]*>/g, '').trim();
 
-    // 3. 循环解析每一行 <tr>
+    // 🚨 终极修复：彻底清除乱码 & 自动推算东八区时间的解析引擎
+    const parseAndConvertToEast8 = (cellHtml, airportCode) => {
+      let text = cellHtml.replace(/<span[^>]*class=["']?tz["']?[^>]*>[\s\S]*?<\/span>/ig, '');
+      text = stripTags(text);
+      // 解决截图中的 &nbsp; 乱码问题
+      text = text.replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
+
+      let hours = 0, mins = 0, hasTime = false;
+      
+      const tMatch = text.match(/(\d{1,2}):(\d{2})\s*([ap]m?)/i);
+      if (tMatch) {
+        hours = parseInt(tMatch[1], 10);
+        mins = parseInt(tMatch[2], 10);
+        let ampm = tMatch[3].toUpperCase();
+        if (ampm.startsWith('P') && hours < 12) hours += 12;
+        if (ampm.startsWith('A') && hours === 12) hours = 0;
+        hasTime = true;
+      } else {
+        const tMatch24 = text.match(/(\d{1,2}):(\d{2})/);
+        if (tMatch24) {
+          hours = parseInt(tMatch24[1], 10);
+          mins = parseInt(tMatch24[2], 10);
+          hasTime = true;
+        }
+      }
+
+      if (!hasTime) return text;
+
+      let dayShift = 0;
+      const dayMatch = text.match(/\(\+?(-?\d+)\)/);
+      if (dayMatch) {
+          dayShift = parseInt(dayMatch[1], 10);
+      }
+
+      // 自动计算并平移至东八区
+      if (TZ_OFFSETS[airportCode] !== undefined) {
+        const offsetDiff = 8 - TZ_OFFSETS[airportCode];
+        let totalMins = hours * 60 + mins + Math.round(offsetDiff * 60);
+        
+        while (totalMins >= 24 * 60) {
+            totalMins -= 24 * 60;
+            dayShift += 1;
+        }
+        while (totalMins < 0) {
+            totalMins += 24 * 60;
+            dayShift -= 1;
+        }
+        
+        hours = Math.floor(totalMins / 60);
+        mins = totalMins % 60;
+      }
+
+      const finalHours = hours.toString().padStart(2, '0');
+      const finalMins = mins.toString().padStart(2, '0');
+      
+      let result = `${finalHours}:${finalMins}`;
+      if (dayShift > 0) result += ` (+${dayShift})`;
+      else if (dayShift < 0) result += ` (${dayShift})`;
+
+      return result;
+    };
+
     while ((matchRow = rowRegex.exec(tbody)) !== null) {
       const rowHtml = matchRow[1];
-      
-      // 跳过表头 <th>，只抓取 <td>
       const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
       let matchCell;
       const cells = [];
+      
       while ((matchCell = cellRegex.exec(rowHtml)) !== null) {
         cells.push(matchCell[1]);
       }
 
-      // 如果列数足够（对应 Python 里的 len(tds) < 7 continue）
       if (cells.length >= 7) {
         try {
-          // --- 解析日期 (Date) ---
           let dateRaw = stripTags(cells[0]);
           let dateVal = dateRaw;
           const d = new Date(dateRaw);
           if (!isNaN(d.getTime())) {
-            dateVal = d.toISOString().split('T')[0]; // 格式化为 YYYY-MM-DD
+            dateVal = d.toISOString().split('T')[0];
           }
 
-          // --- 解析机型 (Aircraft) ---
           let aircraft = stripTags(cells[1]);
 
-          // --- 解析起降机场 (Origin & Destination) ---
           const extractIata = (cellHtml) => {
             const aMatch = cellHtml.match(/<a[^>]*>([\s\S]*?)<\/a>/i);
             let text = aMatch ? stripTags(aMatch[1]) : stripTags(cellHtml);
@@ -76,27 +137,10 @@ export async function GET(request) {
           let origin = extractIata(cells[2]);
           let destination = extractIata(cells[3]);
 
-          // --- 解析起降时间 (Departure & Arrival) ---
-          const extractTime = (cellHtml) => {
-            // 剔除时区 <span> 标签 (替代 Python 的 tz_span.extract())
-            let text = cellHtml.replace(/<span[^>]*class=["']?tz["']?[^>]*>[\s\S]*?<\/span>/ig, '');
-            text = stripTags(text);
-            // 将 08:30PM 转换为 24小时制 20:30
-            const tMatch = text.match(/(\d{1,2}):(\d{2})([ap]m?)/i);
-            if (tMatch) {
-              let hr = parseInt(tMatch[1], 10);
-              let min = tMatch[2];
-              let ampm = tMatch[3].toUpperCase();
-              if (ampm.startsWith('P') && hr < 12) hr += 12;
-              if (ampm.startsWith('A') && hr === 12) hr = 0;
-              return `${hr.toString().padStart(2, '0')}:${min}`;
-            }
-            return text;
-          };
-          let departure = extractTime(cells[4]);
-          let arrival = extractTime(cells[5]);
+          // 将机场代码传入时间转换引擎，获取纯净的东八区时间
+          let departure = parseAndConvertToEast8(cells[4], origin);
+          let arrival = parseAndConvertToEast8(cells[5], destination);
 
-          // --- 解析飞行时长 (Duration) ---
           let durationRaw = stripTags(cells[6]);
           let duration = durationRaw;
           if (durationRaw.includes(':')) {
@@ -104,7 +148,6 @@ export async function GET(request) {
             duration = `${parts[0]}h ${parts[1]}m`;
           }
 
-          // 压入结果数组
           historyRecords.push({
             Date: dateVal,
             Aircraft: aircraft,
@@ -115,7 +158,6 @@ export async function GET(request) {
             Duration: duration
           });
 
-          // 严格遵循 Python 版本逻辑，只取前 10 条历史记录
           if (historyRecords.length >= 10) break;
 
         } catch (e) {
@@ -125,14 +167,12 @@ export async function GET(request) {
       }
     }
 
-    // 4. 打包返回，与原 Python 接口返回格式 100% 对齐
     const finalData = {
       flight_ident: ident,
       history_records: historyRecords,
       last_updated: new Date().toISOString()
     };
 
-    console.log(`🌟 成功抓取航班 ${ident} 的历史记录:`, historyRecords.length, '条');
     return NextResponse.json(finalData);
 
   } catch (error) {
