@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, CircleMarker, Polygon, GeoJSON, Tooltip as Lea
 import * as turf from '@turf/turf';
 import 'leaflet/dist/leaflet.css';
 
+// 中东及全球核心航司映射字典
 const AIRLINE_MAP = {
   QTR: "Qatar Airways", UAE: "Emirates", SIA: "Singapore Airlines", BAW: "British Airways",
   THA: "Thai Airways", CPA: "Cathay Pacific", MAS: "Malaysia Airlines", AIC: "Air India",
@@ -17,7 +18,6 @@ export default function LiveMap({ onFlightUpdate, onFlightSelect, selectedFlight
   const [flights, setFlights] = useState([]);
   const [clientCache, setClientCache] = useState({});
   const [searchQuery, setSearchQuery] = useState("");
-  // 1. 增加当前时间状态（用于右上角时钟）
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
@@ -47,7 +47,6 @@ export default function LiveMap({ onFlightUpdate, onFlightSelect, selectedFlight
     fetchFlights();
     const fetchInterval = setInterval(fetchFlights, 3 * 60 * 1000);
     
-    // 2. 增加每秒更新一次的计时器
     const clockInterval = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
@@ -56,9 +55,9 @@ export default function LiveMap({ onFlightUpdate, onFlightSelect, selectedFlight
       clearInterval(fetchInterval);
       clearInterval(clockInterval);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 3. 计算最新数据的更新时间
   const lastDataUpdateTime = useMemo(() => {
     if (flights.length === 0) return "N/A";
     const times = flights.map(f => new Date(f.captured_at).getTime());
@@ -66,7 +65,6 @@ export default function LiveMap({ onFlightUpdate, onFlightSelect, selectedFlight
     return latest.toLocaleTimeString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' });
   }, [flights]);
 
-  // 4. 格式化当前东八区时间
   const formattedCurrentTime = useMemo(() => {
     return currentTime.toLocaleTimeString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' });
   }, [currentTime]);
@@ -106,19 +104,22 @@ export default function LiveMap({ onFlightUpdate, onFlightSelect, selectedFlight
     } catch (err) { onFlightSelect({ ...flight, airlineName, error: 'API ERROR', loading: false }); }
   };
 
+  // 🚨 修复 1：将 30 分钟判定改成了 65 分钟，防止一小时一抓取导致的大面积变灰
   const getFlightVisuals = (flight) => {
     const isSelected = selectedFlightIcao === flight.icao24;
     if (isSelected) return { radius: 8, pathOptions: { color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 1, weight: 3 }, status: 'SELECTED' };
+    
     if (flight.captured_at) {
       const ageMinutes = (Date.now() - new Date(flight.captured_at).getTime()) / (1000 * 60);
-      if (ageMinutes > 30) return { radius: 5, pathOptions: { color: '#64748b', fillColor: '#64748b', fillOpacity: 0.4, weight: 1, opacity: 0.4 }, status: 'GHOST' };
+      if (ageMinutes > 65) return { radius: 5, pathOptions: { color: '#64748b', fillColor: '#64748b', fillOpacity: 0.4, weight: 1, opacity: 0.4 }, status: 'GHOST' };
     }
+    
     return { radius: 5, pathOptions: { color: '#06b6d4', fillColor: '#06b6d4', fillOpacity: 1, weight: 1 }, status: 'ACTIVE' };
   };
 
   return (
     <div className="relative w-full h-full">
-      {/* 左上角搜索框 */}
+      {/* 搜索框：保持在地图左上角不变 */}
       <div className="absolute top-6 left-6 z-[1000] flex flex-col gap-2">
         <div className="flex bg-slate-900/90 backdrop-blur border border-slate-700 rounded-lg overflow-hidden shadow-2xl transition-all">
           <input 
@@ -129,8 +130,8 @@ export default function LiveMap({ onFlightUpdate, onFlightSelect, selectedFlight
         </div>
       </div>
 
-      {/* 🚨 右上角时间状态栏 */}
-      <div className="absolute top-6 right-6 z-[1000] flex gap-3">
+      {/* 🚨 修复 3：使用 fixed 定位，直接跳出地图容器，固定在全网页的右上角 */}
+      <div className="fixed top-6 right-6 z-[9999] flex gap-3">
         <div className="flex flex-col items-end bg-slate-900/90 backdrop-blur border border-slate-700 px-4 py-2 rounded-lg shadow-2xl">
           <span className="text-[10px] text-slate-500 font-bold tracking-tighter uppercase">Last Data Sync</span>
           <span className="text-sky-400 font-mono text-sm font-bold">{lastDataUpdateTime}</span>
@@ -145,13 +146,29 @@ export default function LiveMap({ onFlightUpdate, onFlightSelect, selectedFlight
         <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
         <Polygon positions={noFlyZone} pathOptions={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.1, dashArray: '5, 5' }} />
         <GeoJSON key={searchQuery} data={referenceRoutesGeoJSON} style={getRouteStyle} />
-        {flights.map((flight) => (
-          <CircleMarker
-            key={flight.icao24} center={[flight.latitude, flight.longitude]}
-            radius={getFlightVisuals(flight).radius} pathOptions={getFlightVisuals(flight).pathOptions}
-            eventHandlers={{ click: () => handleFlightClick(flight) }}
-          />
-        ))}
+        
+        {flights.map((flight) => {
+          const visuals = getFlightVisuals(flight);
+          return (
+            <CircleMarker
+              key={flight.icao24} 
+              center={[flight.latitude, flight.longitude]}
+              radius={visuals.radius} 
+              pathOptions={visuals.pathOptions}
+              eventHandlers={{ click: () => handleFlightClick(flight) }}
+            >
+              {/* 🚨 修复 2：把上一回合误删的悬浮提示框加回来了！ */}
+              <LeafletTooltip direction="top" offset={[0, -5]}>
+                <div className="bg-slate-900 text-slate-100 p-2 rounded border border-slate-700">
+                  <p className="font-bold text-sky-400">{flight.callsign || 'UNKNOWN'}</p>
+                  {visuals.status === 'GHOST' && (
+                    <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider">Status: Historical ({'>'}65m)</p>
+                  )}
+                </div>
+              </LeafletTooltip>
+            </CircleMarker>
+          );
+        })}
       </MapContainer>
     </div>
   );
