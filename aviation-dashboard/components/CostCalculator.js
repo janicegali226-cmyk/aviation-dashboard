@@ -1,5 +1,6 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+// 🚨 新增：引入 useMemo
+import React, { useState, useEffect, useMemo } from 'react';
 
 // ================= 1. 定义机型系统数据库 (完整录入) =================
 const AIRCRAFT_DB = {
@@ -43,6 +44,20 @@ export default function CostCalculator() {
     totalExtraCost: 0,
     totalPax: 0
   });
+
+  // 🚨 新增：当前时间状态
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // 🚨 新增：每秒更新一次时钟
+  useEffect(() => {
+    const clockInterval = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(clockInterval);
+  }, []);
+
+  // 🚨 新增：格式化为东八区时间
+  const formattedCurrentTime = useMemo(() => {
+    return currentTime.toLocaleTimeString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' });
+  }, [currentTime]);
 
   const handleAircraftChange = (e) => {
     const selected = e.target.value;
@@ -107,12 +122,22 @@ export default function CostCalculator() {
 
   useEffect(() => {
     calculateCosts();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [acType, fuelBurn, normalDistance, actualTotalTime, fuelPrice, loadFactor, warRisk, extraStopFee, delayProb]);
 
   const formatMoney = (val) => Number(val).toLocaleString('en-US');
 
   return (
-    <div className="bg-[#0b1120] min-h-screen text-slate-300 p-6 font-sans">
+    <div className="bg-[#0b1120] min-h-screen text-slate-300 p-6 font-sans relative">
+      
+      {/* 🚨 新增：全局右上角时间状态悬浮窗 (Fixed 定位，确保在页面最顶层) */}
+      <div className="fixed top-6 right-6 z-[9999] flex gap-3">
+        <div className="flex flex-col items-end bg-slate-900/90 backdrop-blur border border-slate-700 px-4 py-2 rounded-lg shadow-2xl">
+          <span className="text-[10px] text-slate-500 font-bold tracking-tighter uppercase">Local Time (GMT+8)</span>
+          <span className="text-emerald-400 font-mono text-sm font-bold">{formattedCurrentTime}</span>
+        </div>
+      </div>
+
       <div className="max-w-7xl mx-auto">
         <div className="border-b border-slate-700/50 pb-4 mb-8 flex justify-between items-center">
           <h2 className="text-xl font-bold text-white tracking-widest uppercase">Flight Diversion Simulator</h2>

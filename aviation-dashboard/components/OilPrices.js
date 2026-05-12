@@ -117,7 +117,13 @@ export default function OilPrices() {
               <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
               <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
               <YAxis stroke="#64748b" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-              <Tooltip cursor={{ fill: '#1e293b' }} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155' }} />
+              {/* 🚨 核心修复：添加 itemStyle 变成亮蓝色，并美化 labelStyle 的边框和字体 🚨 */}
+              <Tooltip 
+                cursor={{ fill: '#1e293b' }} 
+                contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px' }} 
+                itemStyle={{ color: '#38bdf8', fontWeight: 'bold' }} 
+                labelStyle={{ color: '#cbd5e1', fontWeight: 'bold', borderBottom: '1px solid #334155', paddingBottom: '4px', marginBottom: '8px' }}
+              />
               <Bar dataKey="spread" name="Spread" radius={[2, 2, 0, 0]}>
                 {spreadData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.spread < 2 || entry.spread > 5 ? '#ef4444' : '#0ea5e9'} />
