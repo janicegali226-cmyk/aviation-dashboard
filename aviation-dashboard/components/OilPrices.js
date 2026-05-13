@@ -124,7 +124,12 @@ export default function OilPrices() {
               <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
               <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
               <YAxis stroke="#64748b" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(val) => `$${val}`} />
-              <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155' }} />
+              <Tooltip 
+                cursor={{ fill: '#1e293b' }} 
+                contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px' }} 
+                itemStyle={{ color: '#38bdf8', fontWeight: 'bold' }} 
+                labelStyle={{ color: '#cbd5e1', fontWeight: 'bold', borderBottom: '1px solid #334155', paddingBottom: '4px', marginBottom: '8px' }}
+              />
               <Legend verticalAlign="top" height={40} />
               <Line type="monotone" dataKey="wti_price" name="WTI" stroke="#f59e0b" strokeWidth={3} dot={false} />
               <Line type="monotone" dataKey="brent_price" name="Brent" stroke="#06b6d4" strokeWidth={3} dot={false} />
