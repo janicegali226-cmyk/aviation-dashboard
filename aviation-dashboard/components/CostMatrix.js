@@ -9,16 +9,39 @@ export default function CostMatrix() {
     criticalRoute: { name: '--', avgIncrease: 0 }
   });
 
-  // ================= 压力测试模块：状态管理 =================
-  const [simOilPrice, setSimOilPrice] = useState(159); // 默认油价
+  // ================= Stress Test Module: State Management =================
+  const [simOilPrice, setSimOilPrice] = useState(159); // Default oil price
   const [selectedRoute, setSelectedRoute] = useState('');
   const [selectedFlight, setSelectedFlight] = useState('');
 
-  // 🚨 1. 新增：时间状态管理
+  // 🚨 1. Added: Time state management
   const [currentTime, setCurrentTime] = useState(new Date());
-  const lastSyncTime = "08:00:00"; // 成本数据与油价同步，固定为早八点
 
-  // 初始化获取数据与启动时钟
+  // Core logic: Calculate dynamic sync date based on 08:00:00 threshold and weekend rules (syncs with Oil Prices)
+  const syncStatus = useMemo(() => {
+    const etNow = new Date(currentTime.toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }));
+    const day = etNow.getDay(); // 0: Sunday, 1: Monday, ..., 6: Saturday
+    const hour = etNow.getHours();
+    
+    let targetDate = new Date(etNow);
+    
+    if (day === 0) { // Sunday -> fallback to Friday
+      targetDate.setDate(etNow.getDate() - 2);
+    } else if (day === 6) { // Saturday -> fallback to Friday
+      targetDate.setDate(etNow.getDate() - 1);
+    } else if (day === 1 && hour < 8) { // Monday before 8 AM -> fallback to last Friday
+      targetDate.setDate(etNow.getDate() - 3);
+    } else if (hour < 8) { // Weekday before 8 AM -> fallback to yesterday
+      targetDate.setDate(etNow.getDate() - 1);
+    }
+    
+    return {
+      date: targetDate.toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' }).replace(/\//g, '-'),
+      time: "08:00:00"
+    };
+  }, [currentTime]);
+
+  // Initialize data fetch and start clock
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -31,7 +54,7 @@ export default function CostMatrix() {
           criticalRoute: { name: '--', avgIncrease: 0 }
         });
 
-        // 默认选中第一条航线和它的第一个航班
+        // Default to selecting the first route and its first flight
         if (data.length > 0) {
           setSelectedRoute(data[0].route);
           if (data[0].airlines.length > 0) {
@@ -45,17 +68,20 @@ export default function CostMatrix() {
     
     fetchData();
 
-    // 🚨 2. 新增：每秒钟更新一次本地时钟
+    // 🚨 2. Added: Update local clock every second
     const clockInterval = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(clockInterval);
   }, []);
 
-  // 🚨 3. 新增：格式化当前东八区时间
-  const formattedCurrentTime = useMemo(() => {
-    return currentTime.toLocaleTimeString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' });
+  // 🚨 3. Added: Format current UTC+8 time
+  const formattedDateTime = useMemo(() => {
+    return {
+      date: currentTime.toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' }).replace(/\//g, '-'),
+      time: currentTime.toLocaleTimeString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' })
+    };
   }, [currentTime]);
 
-  // 联动选择逻辑：切换航线时，自动切换到该航线的第一个航班
+  // Linked selection logic: automatically switch to the first flight of the route when switching routes
   const handleRouteSelect = (routeStr) => {
     setSelectedRoute(routeStr);
     const routeObj = routesData.find(r => r.route === routeStr);
@@ -66,11 +92,11 @@ export default function CostMatrix() {
     }
   };
 
-  // ================= 核心：将后端的业务逻辑移植到前端模拟器 =================
+  // ================= Core: Port backend business logic to frontend simulator =================
   const computeSimCost = (routeStr, aircraft, current_oil_price) => {
     const normalizedRoute = routeStr.replace(/\s+/g, '').toUpperCase();
 
-    // 1. 模拟数据库的距离映射 (km)
+    // 1. Simulate database distance mapping (km)
     const distMap = {
       'SIN-DXB': 5840, 'LHR-DXB': 5470, 'BKK-DXB': 4880, 'HKG-DXB': 5940,
       'DOH-SIN': 6200, 'SIN-LHR': 10880, 'LHR-SIN': 10880, 'FRA-DXB': 4840,
@@ -78,7 +104,7 @@ export default function CostMatrix() {
     };
     const distance = distMap[routeStr] || 6000;
 
-    // 2. 根据机型匹配性能参数 (模糊匹配)
+    // 2. Match performance parameters based on aircraft type (fuzzy matching)
     let speed = 900, fuel_burn_gal = 2500, crew_size = 12, max_pax = 300;
     if (aircraft) {
       const acUpper = aircraft.toUpperCase();
@@ -93,7 +119,7 @@ export default function CostMatrix() {
     const taxi_time_constant = 0.5;
     const crew_hourly_wage = 100;
 
-    // --- A. 计算战前成本 ---
+    // --- A. Calculate pre-war cost ---
     const baseline_air_time = speed > 0 ? distance / speed : 0;
     const baseline_block_time = baseline_air_time + taxi_time_constant;
     
@@ -101,8 +127,8 @@ export default function CostMatrix() {
     const baseline_crew_cost = baseline_block_time * crew_size * crew_hourly_wage;
     const baseline_cost = baseline_fuel_cost + baseline_crew_cost;
 
-    // --- B. 计算当前成本 ---
-    // 精细化的地理绕飞系数
+    // --- B. Calculate current cost ---
+    // Refined geographical detour factors
     const delayFactorMap = {
       'FRA-DXB': 1.18, 'LHR-DXB': 1.16, 'HKG-DXB': 1.12, 
       'BKK-DXB': 1.10, 'SIN-DXB': 1.09, 'DOH-SIN': 1.09, 
@@ -112,25 +138,25 @@ export default function CostMatrix() {
     const actual_air_time = baseline_air_time * delay_factor;
     const actual_block_time = actual_air_time + taxi_time_constant;
     
-    // 延误补偿计算
+    // Delay compensation calculation
     const delay_mins = (actual_air_time - baseline_air_time) * 60;
     let delay_comp = 0;
     if (delay_mins >= 180) delay_comp = 250 * max_pax;
     else if (delay_mins >= 90) delay_comp = 150 * max_pax;
 
-    // 附加费判断
+    // Surcharge determination
     const war_risk = (routeStr.includes('DXB') || routeStr.includes('DOH')) ? 5000 : 0;
     const extra_stop = (distance > 8000 && (routeStr.includes('DXB') || routeStr.includes('DOH'))) ? 1000 : 0;
 
-    // 燃油成本 & 机组薪酬
+    // Fuel cost & Crew pay
     const current_fuel_cost = actual_air_time * fuel_burn_bbl * current_oil_price;
     const current_crew_cost = actual_block_time * crew_size * crew_hourly_wage;
 
-    // 额外燃油成本 & 额外机组薪酬
+    // Extra fuel cost & Extra crew pay
     const extra_fuel = current_fuel_cost - baseline_fuel_cost;
     const extra_crew = current_crew_cost - baseline_crew_cost;
 
-    // 计算额外燃油费占基准燃油费的百分比
+    // Calculate the percentage of extra fuel cost against baseline fuel cost
     let extra_fuel_pct = 0;
     if (baseline_fuel_cost > 0) {
       extra_fuel_pct = (extra_fuel / baseline_fuel_cost) * 100;
@@ -138,7 +164,7 @@ export default function CostMatrix() {
 
     const current_cost = current_fuel_cost + current_crew_cost + delay_comp + war_risk + extra_stop; 
 
-    // --- C. 计算整体涨幅百分比 ---
+    // --- C. Calculate overall fluctuation percentage ---
     let fluctuation_pct = 0.0;
     if (baseline_cost > 0) {
       fluctuation_pct = ((current_cost - baseline_cost) / baseline_cost) * 100;
@@ -153,7 +179,7 @@ export default function CostMatrix() {
     };
   };
 
-  // ================= 💥 核心修改：生成左侧 BarChart 数据 =================
+  // ================= 💥 Core modification: Generate left BarChart data =================
   const simChartData = routesData.map(routeObj => {
     const airlines = routeObj.airlines || [];
     let totalExtraFuelPct = 0;
@@ -202,19 +228,21 @@ export default function CostMatrix() {
   return (
     <div className="p-6 relative w-full">
       
-      {/* 🚨 4. 新增：全局右上角时间状态悬浮窗 (Fixed 定位，确保在页面最顶层) */}
+      {/* 🚨 4. Added: Global top-right time status floating window (Fixed positioning to stay on top) */}
       <div className="fixed top-6 right-6 z-[9999] flex gap-3">
         <div className="flex flex-col items-end bg-slate-900/90 backdrop-blur border border-slate-700 px-4 py-2 rounded-lg shadow-2xl">
           <span className="text-[10px] text-slate-500 font-bold tracking-tighter uppercase">Last Data Sync</span>
-          <span className="text-sky-400 font-mono text-sm font-bold">{lastSyncTime}</span>
+          <span className="text-slate-400 font-mono text-[10px] leading-none mb-1">{syncStatus.date}</span>
+          <span className="text-sky-400 font-mono text-sm font-bold leading-none">{syncStatus.time}</span>
         </div>
         <div className="flex flex-col items-end bg-slate-900/90 backdrop-blur border border-slate-700 px-4 py-2 rounded-lg shadow-2xl">
           <span className="text-[10px] text-slate-500 font-bold tracking-tighter uppercase">Local Time (GMT+8)</span>
-          <span className="text-emerald-400 font-mono text-sm font-bold">{formattedCurrentTime}</span>
+          <span className="text-slate-400 font-mono text-[10px] leading-none mb-1">{formattedDateTime.date}</span>
+          <span className="text-emerald-400 font-mono text-sm font-bold leading-none">{formattedDateTime.time}</span>
         </div>
       </div>
 
-      {/* 1. 顶部真实统计卡片 */}
+      {/* 1. Top real statistics cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6"> 
         <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-xl">
           <div className="flex justify-between items-start">
@@ -243,14 +271,14 @@ export default function CostMatrix() {
         </div>
       </div>
 
-      {/* ================= 2. 压力测试模块 (Cost Sensitivity Simulator) ================= */}
+      {/* ================= 2. Stress Test Module (Cost Sensitivity Simulator) ================= */}
       <div className="bg-slate-800/50 border border-slate-700/50 p-6 rounded-xl mb-6 shadow-lg">
         <h3 className="text-lg font-bold text-white tracking-widest mb-4">COST SENSITIVITY STRESS-TEST</h3>
         
-        {/* 控制面板区 */}
+        {/* Control panel area */}
         <div className="flex flex-col md:flex-row gap-6 mb-6 bg-slate-900/50 p-4 rounded-lg border border-slate-700/30">
           
-          {/* 滑动条 */}
+          {/* Slider */}
           <div className="flex-1 flex flex-col justify-center">
             <label className="text-xs font-bold text-sky-400 block mb-3">ADJUST JET FUEL PRICE ($/BBL)</label>
             <div className="flex items-center gap-4">
@@ -264,7 +292,7 @@ export default function CostMatrix() {
             </div>
           </div>
           
-          {/* 航线与航班选择框 */}
+          {/* Route and flight selection boxes */}
           <div className="flex-1 flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <label className="text-xs text-slate-400 block mb-2">SELECT ROUTE</label>
@@ -291,10 +319,10 @@ export default function CostMatrix() {
           </div>
         </div>
 
-        {/* 图表与数据面板展示区 */}
+        {/* Chart and data panel display area */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          {/* 左侧：8条航线的 Extra Fuel % 横向对比柱状图 */}
+          {/* Left: Horizontal comparison bar chart of Extra Fuel % for 8 routes */}
           <div className="lg:col-span-2 bg-slate-900/30 p-4 rounded-lg border border-slate-700/30">
             <h4 className="text-sm font-bold text-slate-300 mb-4 tracking-wider">Extra Fuel % vs Baseline (Route Average)</h4>
             <div className="h-[220px]">
@@ -314,7 +342,7 @@ export default function CostMatrix() {
             </div>
           </div>
 
-          {/* 右侧：所选具体航班的测算面板 */}
+          {/* Right: Calculation panel for the specifically selected flight */}
           <div className="bg-slate-900/30 p-5 rounded-lg border border-slate-700/30 flex flex-col justify-center">
             <div className="flex justify-between items-end mb-5">
               <h4 className="text-sm font-bold text-slate-300 tracking-wider">Flight Projection</h4>
@@ -349,7 +377,7 @@ export default function CostMatrix() {
       </div>
 
 
-      {/* 3. 核心卡片网格 */}
+      {/* 3. Core card grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         {routesData.map((routeInfo, idx) => {
           const airlines = routeInfo.airlines || [];

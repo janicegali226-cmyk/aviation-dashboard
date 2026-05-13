@@ -1,8 +1,8 @@
 "use client";
-// 🚨 新增：引入 useMemo
+// 🚨 Added: import useMemo
 import React, { useState, useEffect, useMemo } from 'react';
 
-// ================= 1. 定义机型系统数据库 (完整录入) =================
+// ================= 1. Define Aircraft System Database (Full Entry) =================
 const AIRCRAFT_DB = {
   'A320': { name: 'Airbus A320 (twin-jet)', pax: 150, speed: 840, crew: 7, burn: 826 },
   'A321': { name: 'Airbus A321 (twin-jet)', pax: 186, speed: 828, crew: 8, burn: 950 },
@@ -23,7 +23,7 @@ const AIRCRAFT_DB = {
 export default function CostCalculator() {
   const [acType, setAcType] = useState('B789'); 
   
-  // 初始化为 0，并开启 Loading 状态
+  // Initialize to 0 and enable Loading state
   const [fuelPrice, setFuelPrice] = useState(0); 
   const [isSyncingPrice, setIsSyncingPrice] = useState(true);
   
@@ -45,18 +45,21 @@ export default function CostCalculator() {
     totalPax: 0
   });
 
-  // 🚨 新增：当前时间状态
+  // 🚨 Added: Current time state
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // 🚨 新增：每秒更新一次时钟
+  // 🚨 Added: Update clock every second
   useEffect(() => {
     const clockInterval = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(clockInterval);
   }, []);
 
-  // 🚨 新增：格式化为东八区时间
-  const formattedCurrentTime = useMemo(() => {
-    return currentTime.toLocaleTimeString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' });
+  // 🚨 Added: Format to UTC+8 time (Date and Time)
+  const formattedDateTime = useMemo(() => {
+    return {
+      date: currentTime.toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' }).replace(/\//g, '-'),
+      time: currentTime.toLocaleTimeString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' })
+    };
   }, [currentTime]);
 
   const handleAircraftChange = (e) => {
@@ -65,7 +68,7 @@ export default function CostCalculator() {
     setFuelBurn(AIRCRAFT_DB[selected].burn);
   };
 
-  // 💥 核心联动修改：请求你原有的 /api/oil-latest 接口
+  // 💥 Core linked modification: Request the existing /api/oil-latest endpoint
   useEffect(() => {
     const fetchLatestFuelPrice = async () => {
       try {
@@ -84,7 +87,7 @@ export default function CostCalculator() {
   }, []);
 
   const calculateCosts = () => {
-    // 确保油价已拉取再计算
+    // Ensure fuel price is fetched before calculating
     if (fuelPrice === 0) return;
 
     const currentAC = AIRCRAFT_DB[acType];
@@ -130,11 +133,12 @@ export default function CostCalculator() {
   return (
     <div className="bg-[#0b1120] min-h-screen text-slate-300 p-6 font-sans relative">
       
-      {/* 🚨 新增：全局右上角时间状态悬浮窗 (Fixed 定位，确保在页面最顶层) */}
+      {/* 🚨 Added: Global top-right time status floating window (Fixed positioning to stay on top) */}
       <div className="fixed top-6 right-6 z-[9999] flex gap-3">
         <div className="flex flex-col items-end bg-slate-900/90 backdrop-blur border border-slate-700 px-4 py-2 rounded-lg shadow-2xl">
           <span className="text-[10px] text-slate-500 font-bold tracking-tighter uppercase">Local Time (GMT+8)</span>
-          <span className="text-emerald-400 font-mono text-sm font-bold">{formattedCurrentTime}</span>
+          <span className="text-slate-400 font-mono text-[10px] leading-none mb-1">{formattedDateTime.date}</span>
+          <span className="text-emerald-400 font-mono text-sm font-bold leading-none">{formattedDateTime.time}</span>
         </div>
       </div>
 
@@ -148,14 +152,14 @@ export default function CostCalculator() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
-          {/* ================= 左侧：参数输入区 ================= */}
+          {/* ================= Left: Parameter Input Area ================= */}
           <div className="space-y-6">
             <div>
               <h3 className="text-amber-500 text-xs font-bold tracking-widest mb-4">FLIGHT PARAMETERS</h3>
               
               <div className="space-y-4">
                 
-                {/* 下拉选择机型 */}
+                {/* Dropdown to select aircraft type */}
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 tracking-wider mb-1">AIRCRAFT TYPE (AUTO-MATCHES CREW, SPEED, MAX PAX)</label>
                   <div className="relative">
@@ -194,7 +198,7 @@ export default function CostCalculator() {
                       className="w-full bg-[#121a2f] border border-slate-700 rounded p-3 text-sm text-white focus:border-amber-500 outline-none" />
                   </div>
                   
-                  {/* 系统同步的油价 */}
+                  {/* System synced fuel price */}
                   <div className="opacity-80">
                     <label className="block text-[10px] font-bold text-slate-500 tracking-wider mb-1 flex items-center gap-2">
                       JET FUEL PRICE (USD/BBL) <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1 py-0.5 rounded text-[8px]">AUTO-SYNCED</span>
@@ -234,7 +238,7 @@ export default function CostCalculator() {
             </div>
           </div>
 
-          {/* ================= 右侧：成本拆解区 ================= */}
+          {/* ================= Right: Cost Breakdown Area ================= */}
           <div className="bg-[#121a2f] border border-slate-700/50 rounded-lg p-6 flex flex-col justify-start h-full">
             <div>
               <h3 className="text-amber-500 text-xs font-bold tracking-widest mb-6">EXTRA COST BREAKDOWN</h3>
@@ -262,7 +266,7 @@ export default function CostCalculator() {
                 </div>
               </div>
 
-              {/* 总成本强调框 */}
+              {/* Total cost emphasis box */}
               <div className="mt-8 border-2 border-amber-500/40 bg-amber-500/10 rounded-xl p-6 flex flex-col items-center justify-center relative overflow-hidden shadow-[0_0_20px_rgba(245,158,11,0.1)]">
                 <div className="text-amber-500 font-bold tracking-widest text-sm mb-2">TOTAL EXTRA OPERATION COST</div>
                 <div className="text-amber-400 text-5xl font-mono font-black tracking-tighter">

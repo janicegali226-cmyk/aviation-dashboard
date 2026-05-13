@@ -7,14 +7,27 @@ export default function HubMonitor() {
   const [hubs, setHubs] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // 1. 实时时钟状态（用于右侧本地时间跳动）
+  // 1. Real-time clock state (used for local time ticking on the right)
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // 2. 🚨 核心修改：固定数据更新时间为每日 08:00:00
-  const lastSyncTime = "08:00:00";
+  // 2. Core logic: Calculate dynamic sync date based on 08:00:00 threshold
+  const syncStatus = useMemo(() => {
+    const etNow = new Date(currentTime.toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }));
+    const hour = etNow.getHours();
+    
+    let targetDate = new Date(etNow);
+    if (hour < 8) {
+      targetDate.setDate(etNow.getDate() - 1); // If before 8 AM, show yesterday
+    }
+    
+    return {
+      date: targetDate.toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' }).replace(/\//g, '-'),
+      time: "08:00:00"
+    };
+  }, [currentTime]);
 
   useEffect(() => {
-    // 封装获取数据的函数，并加上防缓存时间戳
+    // Encapsulate data fetching function and add cache-busting timestamp
     const fetchHubs = () => {
       fetch(`/api/hubs?_t=${Date.now()}`, { cache: 'no-store' })
         .then((res) => res.json())
@@ -25,10 +38,10 @@ export default function HubMonitor() {
         .catch(err => console.error("Fetch Hubs Error:", err));
     };
 
-    // 初次加载数据
+    // Initial data fetch
     fetchHubs();
 
-    // 设置定时器（每 3 分钟刷一次数据，1 秒钟刷一次本地时钟）
+    // Set intervals (fetch data every 3 mins, tick local clock every 1 sec)
     const fetchInterval = setInterval(fetchHubs, 3 * 60 * 1000);
     const clockInterval = setInterval(() => setCurrentTime(new Date()), 1000);
 
@@ -38,9 +51,12 @@ export default function HubMonitor() {
     };
   }, []);
 
-  // 格式化当前东八区时间
-  const formattedCurrentTime = useMemo(() => {
-    return currentTime.toLocaleTimeString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' });
+  // Format current time in UTC+8
+  const formattedDateTime = useMemo(() => {
+    return {
+      date: currentTime.toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' }).replace(/\//g, '-'),
+      time: currentTime.toLocaleTimeString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' })
+    };
   }, [currentTime]);
 
   const getStatusLabel = (hub) => {
@@ -59,15 +75,17 @@ export default function HubMonitor() {
 
   return (
     <div className="relative w-full">
-      {/* 右上角时间状态悬浮窗 (Fixed 定位，确保在页面最顶层) */}
+      {/* Top-right time status floating window (Fixed positioning to stay on top) */}
       <div className="fixed top-6 right-6 z-[9999] flex gap-3">
         <div className="flex flex-col items-end bg-slate-900/90 backdrop-blur border border-slate-700 px-4 py-2 rounded-lg shadow-2xl">
           <span className="text-[10px] text-slate-500 font-bold tracking-tighter uppercase">Last Data Sync</span>
-          <span className="text-sky-400 font-mono text-sm font-bold">{lastSyncTime}</span>
+          <span className="text-slate-400 font-mono text-[10px] leading-none mb-1">{syncStatus.date}</span>
+          <span className="text-sky-400 font-mono text-sm font-bold leading-none">{syncStatus.time}</span>
         </div>
         <div className="flex flex-col items-end bg-slate-900/90 backdrop-blur border border-slate-700 px-4 py-2 rounded-lg shadow-2xl">
           <span className="text-[10px] text-slate-500 font-bold tracking-tighter uppercase">Local Time (GMT+8)</span>
-          <span className="text-emerald-400 font-mono text-sm font-bold">{formattedCurrentTime}</span>
+          <span className="text-slate-400 font-mono text-[10px] leading-none mb-1">{formattedDateTime.date}</span>
+          <span className="text-emerald-400 font-mono text-sm font-bold leading-none">{formattedDateTime.time}</span>
         </div>
       </div>
 
@@ -75,7 +93,7 @@ export default function HubMonitor() {
         <div className="h-[600px] flex items-center justify-center text-sky-500 font-bold tracking-widest">LOADING HUB DATA...</div>
       ) : (
         <>
-          {/* 模块 1：八大机场核心卡片 */}
+          {/* Module 1: Eight core airport cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
             {hubs.map((hub, index) => {
               const status = getStatusLabel(hub);
@@ -114,7 +132,7 @@ export default function HubMonitor() {
             })}
           </div>
 
-          {/* 模块 2：可视化图表区域 */}
+          {/* Module 2: Visual chart area */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="bg-[#121a2f] border border-slate-800 rounded-xl p-6 shadow-xl">
               <h3 className="text-orange-500 font-bold tracking-widest mb-8 text-sm">CANCELLATIONS (SAMPLE BASE)</h3>
@@ -124,7 +142,12 @@ export default function HubMonitor() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                     <XAxis dataKey="airport_code" stroke="#64748b" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
                     <YAxis stroke="#64748b" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
-                    <Tooltip cursor={{ fill: '#1e293b' }} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', color: '#f8fafc' }} />
+                    <Tooltip 
+                      cursor={{ fill: '#1e293b' }} 
+                      contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px' }} 
+                      itemStyle={{ color: '#38bdf8', fontWeight: 'bold' }} 
+                      labelStyle={{ color: '#cbd5e1', fontWeight: 'bold', borderBottom: '1px solid #334155', paddingBottom: '4px', marginBottom: '8px' }}
+                    />
                     <Bar dataKey="cancelled_count" radius={[4, 4, 0, 0]}>
                       {hubs.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={getCancelBarColor(entry.cancelled_count)} />
@@ -143,7 +166,12 @@ export default function HubMonitor() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                     <XAxis dataKey="airport_code" stroke="#64748b" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
                     <YAxis stroke="#64748b" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
-                    <Tooltip cursor={{ fill: '#1e293b' }} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', color: '#f8fafc' }} />
+                    <Tooltip 
+                      cursor={{ fill: '#1e293b' }} 
+                      contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px' }} 
+                      itemStyle={{ color: '#38bdf8', fontWeight: 'bold' }} 
+                      labelStyle={{ color: '#cbd5e1', fontWeight: 'bold', borderBottom: '1px solid #334155', paddingBottom: '4px', marginBottom: '8px' }}
+                    />
                     <Bar dataKey="avg_delay_mins" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>

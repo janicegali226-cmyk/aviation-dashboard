@@ -8,27 +8,27 @@ import os
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
-            # 1. 连接云端数据库
+            # 1. connect to the cloud database
             db = mysql.connector.connect(
                 host=os.getenv("DB_HOST"),
                 port=int(os.getenv("DB_PORT", 4000)),
                 user=os.getenv("DB_USER"),
                 password=os.getenv("DB_PASSWORD"),
                 database=os.getenv("DB_NAME"),
-                ssl_verify_cert=False,    # 保持轻量级忽略本地证书
+                ssl_verify_cert=False,
                 ssl_verify_identity=False
             )
             cursor = db.cursor()
             
-            # 2. AirLabs API 配置
+            # 2. AirLabs API configuration
             AIRLABS_API_KEY = os.getenv("AIRLABS_API_KEY")
             if not AIRLABS_API_KEY:
                 raise ValueError("Missing AIRLABS_API_KEY in environment variables.")
                 
-            # bbox 边界框: south_lat, west_lng, north_lat, east_lng (对应你之前的中东区域)
+            # bbox bounding boxes: south_lat, west_lng, north_lat, east_lng (corresponding to your previous Middle East region)
             TARGET_URL = f"https://airlabs.co/api/v9/flights?bbox=10.0,35.0,45.0,80.0&api_key={AIRLABS_API_KEY}"
             
-            # 3. 抓取数据 (设置强制超时保护，Vercel 友好)
+            # 3. Data scrape (Set mandatory timeout protection, Vercel-friendly)
             response = requests.get(TARGET_URL, timeout=8)
             inserted_count = 0
             
@@ -51,9 +51,8 @@ class handler(BaseHTTPRequestHandler):
                         speed_kmh = f.get('speed', 0)
                         dir_track = f.get('dir', 0)
                         
-                        # 确保关键数据存在
                         if hex_code and callsign and lat and lng:
-                            # 自动将 AirLabs 的 km/h 换算为 m/s，无缝对接你的前端逻辑
+                            # Automatically convert AirLabs' km/h to m/s, seamlessly integrating with your front-end logic
                             velocity_ms = round(speed_kmh * (1000 / 3600), 2)
                             values.append((hex_code, callsign.strip(), lat, lng, velocity_ms, dir_track))
                     
@@ -65,7 +64,7 @@ class handler(BaseHTTPRequestHandler):
             cursor.close()
             db.close()
             
-            # 4. 返回 Vercel 成功信号
+            # 4. Return the Vercel success signal
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
@@ -75,7 +74,7 @@ class handler(BaseHTTPRequestHandler):
             }).encode('utf-8'))
             
         except Exception as e:
-            # 返回报错信号
+            # return an error signal
             self.send_response(500)
             self.send_header('Content-type', 'application/json')
             self.end_headers()

@@ -5,7 +5,7 @@ import { MapContainer, TileLayer, CircleMarker, Polygon, GeoJSON, Tooltip as Lea
 import * as turf from '@turf/turf';
 import 'leaflet/dist/leaflet.css';
 
-// 中东及全球核心航司映射字典
+// Middle East and global core airline mapping dictionary
 const AIRLINE_MAP = {
   QTR: "Qatar Airways", UAE: "Emirates", SIA: "Singapore Airlines", BAW: "British Airways",
   THA: "Thai Airways", CPA: "Cathay Pacific", MAS: "Malaysia Airlines", AIC: "Air India",
@@ -58,15 +58,21 @@ export default function LiveMap({ onFlightUpdate, onFlightSelect, selectedFlight
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const lastDataUpdateTime = useMemo(() => {
-    if (flights.length === 0) return "N/A";
+  const lastDataUpdate = useMemo(() => {
+    if (flights.length === 0) return { date: "--", time: "--" };
     const times = flights.map(f => new Date(f.captured_at).getTime());
     const latest = new Date(Math.max(...times));
-    return latest.toLocaleTimeString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' });
+    return {
+      date: latest.toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' }).replace(/\//g, '-'),
+      time: latest.toLocaleTimeString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' })
+    };
   }, [flights]);
 
-  const formattedCurrentTime = useMemo(() => {
-    return currentTime.toLocaleTimeString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' });
+  const formattedDateTime = useMemo(() => {
+    return {
+      date: currentTime.toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' }).replace(/\//g, '-'),
+      time: currentTime.toLocaleTimeString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' })
+    };
   }, [currentTime]);
 
   const noFlyZone = [ [27.5, 55.0], [26.5, 56.5], [25.5, 56.0], [26.0, 54.5], [27.0, 54.0] ];
@@ -104,7 +110,7 @@ export default function LiveMap({ onFlightUpdate, onFlightSelect, selectedFlight
     } catch (err) { onFlightSelect({ ...flight, airlineName, error: 'API ERROR', loading: false }); }
   };
 
-  // 🚨 修复 1：将 30 分钟判定改成了 65 分钟，防止一小时一抓取导致的大面积变灰
+  // FIX 1: Changed 30-minute threshold to 65 minutes to prevent massive gray-out due to 1-hour fetch interval
   const getFlightVisuals = (flight) => {
     const isSelected = selectedFlightIcao === flight.icao24;
     if (isSelected) return { radius: 8, pathOptions: { color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 1, weight: 3 }, status: 'SELECTED' };
@@ -119,7 +125,7 @@ export default function LiveMap({ onFlightUpdate, onFlightSelect, selectedFlight
 
   return (
     <div className="relative w-full h-full">
-      {/* 搜索框：保持在地图左上角不变 */}
+      {/* Search box: kept at top-left of the map */}
       <div className="absolute top-6 left-6 z-[1000] flex flex-col gap-2">
         <div className="flex bg-slate-900/90 backdrop-blur border border-slate-700 rounded-lg overflow-hidden shadow-2xl transition-all">
           <input 
@@ -130,15 +136,17 @@ export default function LiveMap({ onFlightUpdate, onFlightSelect, selectedFlight
         </div>
       </div>
 
-      {/* 🚨 修复 3：使用 fixed 定位，直接跳出地图容器，固定在全网页的右上角 */}
+      {/* FIX 3: Use fixed positioning to break out of map container, fixed to top-right of the whole page */}
       <div className="fixed top-6 right-6 z-[9999] flex gap-3">
         <div className="flex flex-col items-end bg-slate-900/90 backdrop-blur border border-slate-700 px-4 py-2 rounded-lg shadow-2xl">
           <span className="text-[10px] text-slate-500 font-bold tracking-tighter uppercase">Last Data Sync</span>
-          <span className="text-sky-400 font-mono text-sm font-bold">{lastDataUpdateTime}</span>
+          <span className="text-slate-400 font-mono text-[10px] leading-none mb-1">{lastDataUpdate.date}</span>
+          <span className="text-sky-400 font-mono text-sm font-bold leading-none">{lastDataUpdate.time}</span>
         </div>
         <div className="flex flex-col items-end bg-slate-900/90 backdrop-blur border border-slate-700 px-4 py-2 rounded-lg shadow-2xl">
           <span className="text-[10px] text-slate-500 font-bold tracking-tighter uppercase">Local Time (GMT+8)</span>
-          <span className="text-emerald-400 font-mono text-sm font-bold">{formattedCurrentTime}</span>
+          <span className="text-slate-400 font-mono text-[10px] leading-none mb-1">{formattedDateTime.date}</span>
+          <span className="text-emerald-400 font-mono text-sm font-bold leading-none">{formattedDateTime.time}</span>
         </div>
       </div>
 
@@ -157,7 +165,7 @@ export default function LiveMap({ onFlightUpdate, onFlightSelect, selectedFlight
               pathOptions={visuals.pathOptions}
               eventHandlers={{ click: () => handleFlightClick(flight) }}
             >
-              {/* 🚨 修复 2：把上一回合误删的悬浮提示框加回来了！ */}
+              {/* FIX 2: Restored the tooltip that was accidentally removed in the previous iteration! */}
               <LeafletTooltip direction="top" offset={[0, -5]}>
                 <div className="bg-slate-900 text-slate-100 p-2 rounded border border-slate-700">
                   <p className="font-bold text-sky-400">{flight.callsign || 'UNKNOWN'}</p>

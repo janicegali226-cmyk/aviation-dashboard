@@ -8,18 +8,39 @@ export default function OilPrices() {
   const [latestOilPrices, setLatestOilPrices] = useState([]);
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // 数据每日 8 点更新，锁定同步时间
-  const lastSyncTime = "08:00:00";
+  // Core logic: Calculate dynamic sync date based on 08:00:00 threshold and weekend rules
+  const oilSyncStatus = useMemo(() => {
+    const etNow = new Date(currentTime.toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }));
+    const day = etNow.getDay(); // 0: Sunday, 1: Monday, ..., 6: Saturday
+    const hour = etNow.getHours();
+    
+    let targetDate = new Date(etNow);
+    
+    if (day === 0) { // Sunday -> fallback to Friday
+      targetDate.setDate(etNow.getDate() - 2);
+    } else if (day === 6) { // Saturday -> fallback to Friday
+      targetDate.setDate(etNow.getDate() - 1);
+    } else if (day === 1 && hour < 8) { // Monday before 8 AM -> fallback to last Friday
+      targetDate.setDate(etNow.getDate() - 3);
+    } else if (hour < 8) { // Weekday before 8 AM -> fallback to yesterday
+      targetDate.setDate(etNow.getDate() - 1);
+    }
+    
+    return {
+      date: targetDate.toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' }).replace(/\//g, '-'),
+      time: "08:00:00"
+    };
+  }, [currentTime]);
 
   useEffect(() => {
-    // 1. 封装数据获取函数
+    // 1. Encapsulate data fetching function
     const fetchData = () => {
-      // 获取历史趋势
+      // Fetch historical trends
       fetch('/api/oil-history?_t=' + Date.now())
         .then(res => res.json())
         .then(data => setOilHistory(data));
 
-      // 获取最新卡片数据
+      // Fetch latest card data
       fetch('/api/oil-latest?_t=' + Date.now())
         .then(res => res.json())
         .then(data => {
@@ -29,7 +50,7 @@ export default function OilPrices() {
 
     fetchData();
 
-    // 2. 定时器：每 3 分钟同步一次数据，每 1 秒更新一次本地时钟
+    // 2. Timers: Sync data every 3 mins, update local clock every 1 sec
     const fetchInterval = setInterval(fetchData, 3 * 60 * 1000);
     const clockInterval = setInterval(() => setCurrentTime(new Date()), 1000);
 
@@ -39,12 +60,15 @@ export default function OilPrices() {
     };
   }, []);
 
-  // 格式化东八区时间
+  // Format current time in UTC+8
   const formattedCurrentTime = useMemo(() => {
-    return currentTime.toLocaleTimeString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' });
+    return {
+      date: currentTime.toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' }).replace(/\//g, '-'),
+      time: currentTime.toLocaleTimeString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' })
+    };
   }, [currentTime]);
 
-  // 计算价差数据
+  // Calculate price spread data
   const spreadData = useMemo(() => {
     return oilHistory.map(day => ({
       date: day.date,
@@ -55,19 +79,21 @@ export default function OilPrices() {
   return (
     <div className="flex flex-col gap-6 w-full relative">
       
-      {/* 右上角悬浮时间状态栏 */}
+      {/* Top-right floating time status bar */}
       <div className="fixed top-6 right-6 z-[9999] flex gap-3">
         <div className="flex flex-col items-end bg-slate-900/90 backdrop-blur border border-slate-700 px-4 py-2 rounded-lg shadow-2xl">
           <span className="text-[10px] text-slate-500 font-bold tracking-tighter uppercase">Last Data Sync</span>
-          <span className="text-sky-400 font-mono text-sm font-bold">{lastSyncTime}</span>
+          <span className="text-slate-400 font-mono text-[10px] leading-none mb-1">{oilSyncStatus.date}</span>
+          <span className="text-sky-400 font-mono text-sm font-bold leading-none">{oilSyncStatus.time}</span>
         </div>
         <div className="flex flex-col items-end bg-slate-900/90 backdrop-blur border border-slate-700 px-4 py-2 rounded-lg shadow-2xl">
           <span className="text-[10px] text-slate-500 font-bold tracking-tighter uppercase">Local Time (GMT+8)</span>
-          <span className="text-emerald-400 font-mono text-sm font-bold">{formattedCurrentTime}</span>
+          <span className="text-slate-400 font-mono text-[10px] leading-none mb-1">{formattedCurrentTime.date}</span>
+          <span className="text-emerald-400 font-mono text-sm font-bold leading-none">{formattedCurrentTime.time}</span>
         </div>
       </div>
 
-      {/* 模块 1：最新油价卡片 */}
+      {/* Module 1: Latest oil price cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {latestOilPrices.map((item, index) => {
           const isUp = item.price_change_pct > 0;
@@ -89,7 +115,7 @@ export default function OilPrices() {
         })}
       </div>
       
-      {/* 模块 2：30天趋势折线图 */}
+      {/* Module 2: 30-Day trend line chart */}
       <div className="bg-[#121a2f] border border-slate-800 rounded-xl p-8 shadow-2xl w-full h-[450px] flex flex-col">
         <h3 className="text-orange-500 font-bold tracking-widest text-sm mb-6 uppercase">30-Day Price Trend</h3>
         <div className="flex-grow w-full">
@@ -108,7 +134,7 @@ export default function OilPrices() {
         </div>
       </div>
 
-      {/* 模块 3：价差柱状图 */}
+      {/* Module 3: Price spread bar chart */}
       <div className="bg-[#121a2f] border border-slate-800 rounded-xl p-8 shadow-2xl w-full h-[320px] flex flex-col">
         <h3 className="text-orange-500 font-bold tracking-widest text-sm mb-6 uppercase">Crisis Premium: Brent vs WTI Spread</h3>
         <div className="flex-grow w-full">
@@ -117,7 +143,7 @@ export default function OilPrices() {
               <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
               <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
               <YAxis stroke="#64748b" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-              {/* 🚨 核心修复：添加 itemStyle 变成亮蓝色，并美化 labelStyle 的边框和字体 🚨 */}
+              {/* 🚨 Core fix: Add itemStyle for bright blue, and beautify labelStyle border and font 🚨 */}
               <Tooltip 
                 cursor={{ fill: '#1e293b' }} 
                 contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px' }} 

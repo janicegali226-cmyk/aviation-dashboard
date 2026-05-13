@@ -10,7 +10,7 @@ import requests
 import re
 
 # ==========================================
-# 1. 数据库配置与物理距离
+# 1. Database configuration and physical distance
 # ==========================================
 DB_CONFIG = {
     "host": os.getenv("DB_HOST"),
@@ -55,7 +55,7 @@ def calculate_great_circle_distance(route):
         return None
 
 # ==========================================
-# 2. 内嵌极速防超时爬虫 & 数据获取
+# 2. Embedded fast anti-timeout crawler & data acquisition
 # ==========================================
 def get_oil_prices(cursor):
     try:
@@ -72,13 +72,12 @@ def get_oil_prices(cursor):
         return 159.36, 115.40
 
 def fetch_flightaware_lightweight(ident):
-    """超轻量替代方案：原生requests+正则，强制1.5秒超时防崩溃"""
     url = f"https://www.flightaware.com/live/flight/{ident}"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36"
     }
     try:
-        # 🚨 核心保命机制：最多只等1.5秒，拿不到直接跳过，防止Vercel被10秒强杀！
+        # 🚨 Core survival mechanism: Wait for up to 1.5 seconds at most. If you can't get it, skip it directly to prevent Vercel from being killed in 10 seconds!
         res = requests.get(url, headers=headers, timeout=1.5)
         if res.status_code == 200:
             match = re.search(r'trackpollBootstrap\s*=\s*({.+?});\s*</script>', res.text, re.DOTALL)
@@ -109,7 +108,7 @@ def fetch_realtime_flight_data(ident, route, baseline_air_time):
     return actual_air_time, 0, war_risk, extra_stop
 
 # ==========================================
-# 3. 核心核算引擎
+# 3. Core calculating engine
 # ==========================================
 def calculate_matrix_data():
     db = mysql.connector.connect(**DB_CONFIG)
@@ -197,7 +196,7 @@ def calculate_matrix_data():
     return count
 
 # ==========================================
-# 4. 包装为 Vercel 接口
+# 4. Packaged as a Vercel interface
 # ==========================================
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):

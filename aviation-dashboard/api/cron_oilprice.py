@@ -5,7 +5,7 @@ import os
 import requests
 from datetime import datetime
 
-# 模拟获取 Yahoo Finance 数据的轻量级函数
+# obtaining Yahoo Finance data
 def fetch_yahoo_finance(ticker):
     url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}?range=1mo&interval=1d"
     headers = {
@@ -22,7 +22,7 @@ def fetch_yahoo_finance(ticker):
             
             for t, c in zip(timestamps, closes):
                 if c is not None:
-                    # 将时间戳转换为 YYYY-MM-DD 格式
+                    # Convert the timestamp to YYYY-MM-DD format
                     date_str = datetime.fromtimestamp(t).strftime('%Y-%m-%d')
                     result[date_str] = c
         return result
@@ -44,20 +44,20 @@ class handler(BaseHTTPRequestHandler):
             )
             cursor = db.cursor()
             
-            # 获取最近 30 天油价数据 (原生字典)
+            # Get the oil price data of the last 30 days
             wti_data = fetch_yahoo_finance("CL=F")
             brent_data = fetch_yahoo_finance("BZ=F")
             jet_data = fetch_yahoo_finance("HO=F")
 
-            # 提取同时存在三种油价的公共日期 (等同于 pandas 的 dropna 逻辑)
+            # Extract the common date where three oil prices exist simultaneously
             common_dates = set(wti_data.keys()) & set(brent_data.keys()) & set(jet_data.keys())
             
             records = []
-            # 按日期排序整理数据
+            # Sort the data by date
             for date_str in sorted(common_dates):
                 wti = wti_data[date_str]
                 brent = brent_data[date_str]
-                jet = jet_data[date_str] * 42  # 航空燃油转换
+                jet = jet_data[date_str] * 42  # Aviation fuel conversion
                 
                 records.append((date_str, round(wti, 2), round(brent, 2), round(jet, 2)))
                 

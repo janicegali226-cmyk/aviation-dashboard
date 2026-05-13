@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-// 强制实时响应，绝对不准缓存
+// Mandatory real-time response is required. Caching is absolutely not allowed
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
@@ -10,7 +10,7 @@ export async function GET(request) {
   if (!ident) return NextResponse.json({ error: 'Missing callsign' }, { status: 400 });
 
   try {
-    // 1. 🚨 核心改造：直接在 Next.js 里去抓取数据，彻底干掉对 Python 后端的依赖！
+    // 1. 🚨 Core transformation: Directly capture data within Next.js, completely eliminating the reliance on the Python backend!
     const url = `https://www.flightaware.com/live/flight/${ident}`;
     const response = await fetch(url, {
       headers: {
@@ -23,7 +23,7 @@ export async function GET(request) {
 
     const html = await response.text();
     
-    // 2. 使用正则提取内置 JSON 数据
+    // 2. Extract the built-in JSON data using regular expressions
     const match = html.match(/trackpollBootstrap\s*=\s*(\{.+?\});\s*<\/script>/s);
     if (!match || !match[1]) throw new Error('No schedule data found on page');
 
@@ -34,7 +34,7 @@ export async function GET(request) {
         throw new Error('No active flight data available');
     }
 
-    // 3. 解析核心飞行数据
+    // 3. Analyze the core flight data
     const flightId = Object.keys(flights)[0];
     const flight = flights[flightId];
     const flightPlan = flight.flightPlan || {};
@@ -48,11 +48,11 @@ export async function GET(request) {
         if (depTime && arrTime && arrTime > depTime) {
             durationSec = arrTime - depTime;
         } else {
-            durationSec = 28800; // 兜底 8 小时
+            durationSec = 28800; // A guarantee of 8 hours
         }
     }
 
-    // 4. 完全保留你原本的 Unix 转换函数
+    // 4. Keep your original Unix conversion function completely
     const convertUnixToISO = (unixSeconds) => {
       if (!unixSeconds || isNaN(unixSeconds)) return null;
       return new Date(unixSeconds * 1000).toISOString();
@@ -61,7 +61,6 @@ export async function GET(request) {
     const speedVal = flight.filed_speed || flightPlan.speed || 0;
     const distanceVal = flight.distance_filed || flightPlan.directDistance || 0;
 
-    // 5. 完美复刻你原来的 adaptedData 结构！
     const adaptedData = {
       flights: [{
         ident: ident,
@@ -82,7 +81,7 @@ export async function GET(request) {
       }]
     };
 
-    console.log("🌟 发往前端的适配数据:", adaptedData);
+    console.log("🌟 Send the front-end adaptation data:", adaptedData);
     return NextResponse.json(adaptedData);
 
   } catch (error) {
